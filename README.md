@@ -4,7 +4,7 @@ A standalone service that detects categories of flags in RFP text using a fine-t
 
 The service accepts extracted RFP text via API, chunks it, runs each chunk through a LoRA fine-tuned model augmented with RAG context, parses detected flags, deduplicates across chunks, and returns a JSON response with flags and a PASS/FAIL/REVIEW decision.
 
-See `final_adr.md` for the full architectural decision record.
+See the [Architectural Decision Record](final_adr.md) for full design details.
 
 ## Project Structure
 

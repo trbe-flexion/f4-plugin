@@ -161,50 +161,6 @@ Documentation: This ADR, plus technical docs on model selection, training data g
 
 Demo: Gradio frontend — upload an RFP, get a flag report and decision. Delta comparison against current string/metadata filtering.
 
-## Lessons from Prior Assignments
-
-These are hard-won notes from HW7-HW11 that apply directly to this project.
-
-SageMaker: Virtual environments must be on local disk, not the S3-mounted home directory. Pip/uv installs fail silently or corrupt on S3 FUSE mounts.
-
-GPU sizing: Qwen2.5-32B OOM'd on an L4 (24GB VRAM). Qwen2.5-7B in float16 fits comfortably (~14GB). For LoRA fine-tuning, expect higher VRAM than inference — plan for a larger instance or quantize during training.
-
-Bedrock Converse API: HW7's `BedrockInferenceClient` (archived at `archive/hw7/`) is a working reference for calling Bedrock models. The Converse API is model-agnostic — same call signature for Claude, Llama, etc.
-
-ChromaDB: HW8's `vectordb.py` (archived at `archive/hw8/`) has a working embedding + retrieval implementation. Reference for the RAG component.
-
-TextGrad: HW10 has working TextGrad code in `personal_notes/HW10/pgp_*.py`. Key lesson — the backward engine (critic) should be more capable than the forward engine. Used Qwen2.5-7B backward + Qwen2.5-3B forward.
-
-Gradio: HW11 used Gradio Blocks (not ChatInterface) wrapping Bedrock Converse. Working reference at `archive/hw11/` (once archived) or `src/frontend.py`.
-
-Outlines: HW9 used Outlines CFG mode for constrained HTML generation. Not applicable to Bedrock (no grammar support on custom imports), but useful if running the model locally during dev/eval on SageMaker.
-
-## Writing Style
-
-See `STYLE_GUIDE.md` in the repo root for ADR and documentation conventions.
-
-## Code Standards (for f4-plugin repo)
-
-These rules are carried over from the LLM class repo. Enforce them in the new repo.
-
-- **File Formatting**: ALL files must end with a newline character.
-  - Set up a `end-of-file-fixer` pre-commit hook to enforce this.
-  - This is Unix/POSIX standard — text files must end with newline.
-
-- **Ruff Linting**: ALWAYS run BOTH checks before committing:
-  - `ruff check .` — catches linting errors (bare except, unused f-strings, unused imports, etc.)
-  - `ruff format .` — fixes formatting only (whitespace, line length, quotes)
-  - **CRITICAL**: `ruff format` does NOT catch linting errors! Must run both commands.
-  - Common issues: bare `except:` (use `except Exception:`), f-strings without placeholders.
-
-- **Transformers API**: Use `dtype` parameter, NOT `torch_dtype` (deprecated).
-  - Correct: `AutoModelForCausalLM.from_pretrained(model, dtype=torch.float16)`
-  - Incorrect: `AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16)`
-
-- **Testing**: pytest with 80%+ coverage target. Mock model calls for CI performance. Run with `pytest --cov`.
-
-- **Package Management**: uv (`uv sync`, `uv add`, etc.)
-
 ## Notes
 
 F4 = Flexion Fast Fail Filtering.
