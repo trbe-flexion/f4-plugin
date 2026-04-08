@@ -2,7 +2,7 @@
 
 A Python library that detects categories of flags in RFP text using a fine-tuned small model. Designed as a plug-in for the opp-capture pipeline.
 
-`f4.filter(text)` accepts extracted RFP text, chunks it, runs each chunk through a LoRA fine-tuned model augmented with RAG context, parses detected flags, deduplicates across chunks, and returns a dict with flags, a PASS/FAIL/REVIEW decision, and processing metadata.
+`f4.filter(text)` accepts extracted RFP text, chunks it, runs each chunk through a LoRA fine-tuned model augmented with RAG context, parses detected flags, deduplicates across chunks, and returns a dict with flags, a FILTER/REVIEW decision, and processing metadata.
 
 See the [Architectural Decision Record](final_adr.md) for full design details.
 
@@ -11,19 +11,18 @@ See the [Architectural Decision Record](final_adr.md) for full design details.
 ```
 f4-plugin/
 ├── src/
-│   ├── api/            # Public library interface
+│   ├── pipeline/       # Public filter() interface and orchestration
 │   ├── chunking/       # Text chunking logic
 │   ├── inference/      # Bedrock model calls
 │   ├── rag/            # ChromaDB retrieval
-│   ├── decision/       # Flag aggregation and PASS/FAIL/REVIEW logic
+│   ├── decision/       # Flag aggregation and FILTER/REVIEW logic
 │   └── frontend/       # Gradio demo app
 ├── tests/              # pytest test suite
 ├── data/               # Training and evaluation datasets
 ├── training/           # Fine-tuning scripts
 ├── evaluation/         # Eval scripts and results
 └── infra/
-    ├── terraform/      # Bedrock, ECR, IAM
-    └── docker/         # Container definitions
+    └── terraform/      # Bedrock Custom Model Import, IAM
 ```
 
 ## Setup
