@@ -8,7 +8,7 @@ Proposed/Planned
 
 Flexion's opp-capture pipeline screens government RFPs for business fit. The current Screener stage uses string-based keyword matching — effective for obvious cases but blind to nuance. "Standard software lifecycle development" means waterfall, but there's no keyword for that. The Analyzer stage uses a large cloud LLM (Claude via Bedrock) for deeper evaluation, but that's expensive and slow per-call.
 
-I want to build a standalone service that replaces the string-based filter with a fine-tuned small model that detects categories of flags in RFP text. The service (F4 — Flexion Fast Fail Filtering) will be a plug-in that opp-capture can adopt or ignore. If my service disappears tomorrow, opp-capture keeps working. This is a final project for the LLMs in Production course, demo April 20.
+I want to build a Python library that replaces the string-based filter with a fine-tuned small model that detects categories of flags in RFP text. The library (F4 — Flexion Fast Fail Filtering) will be a plug-in that opp-capture can adopt or ignore. If my library disappears tomorrow, opp-capture keeps working. This is a final project for the LLMs in Production course, demo April 20.
 
 Tom Willis maintains opp-capture and has historical decision data and real RFP examples available.
 
@@ -23,7 +23,7 @@ Tom Willis maintains opp-capture and has historical decision data and real RFP e
 7. LoRA fine-tuning
 8. Set up RAG — ChromaDB with flag definitions, examples, and real RFP language from Tom
 9. Deploy fine-tuned model to Bedrock Custom Model Import
-10. Build service layer (API, chunking, flag aggregation, decision logic)
+10. Build library layer (public `filter()` interface, chunking, flag aggregation, decision logic)
 11. Prompt optimization via TextGrad on SageMaker
 12. Gradio frontend for manual RFP upload and demo
 13. Evaluation (precision/recall on synthetic and real data, opp-capture adapter for delta comparison against current filtering)
@@ -39,19 +39,19 @@ Consequences: Giving up constrained generation (Outlines, GBNF grammars). Bedroc
 
 ### Output Format
 
-The model outputs detected flags in a simple parseable format (CSV or similar), not JSON. A line like `waterfall_methodology,fast-fail` is nearly impossible to malform and trivially parsed. The service layer — my application code, not the model — constructs the final JSON response containing both flags and the algorithmic decision. This means structured JSON output is guaranteed regardless of model behavior.
+The model outputs detected flags in a simple parseable format (CSV or similar), not JSON. I am hoping a line like `waterfall_methodology,fast-fail` is easy to reliably prompt, and it would be trivially parsed by the application code. The service layer — my application code, not the model — constructs the final JSON response containing both flags and the algorithmic decision. This means structured JSON output is guaranteed regardless of model behavior.
 
 ### Architectural Boundary
 
-F4 is a standalone service in its own repo (`f4-plugin`) with its own infrastructure code. It exposes an API that accepts extracted RFP text and returns a JSON response with detected flags and a PASS/FAIL/REVIEW decision. All infra (Terraform, Docker, ECR) is self-contained — no piggybacking on opp-capture's infrastructure.
+F4 is a Python library in its own repo (`f4-plugin`) with its own infrastructure code (Terraform for Bedrock Custom Model Import, IAM roles). Opp-capture imports F4 and calls `f4.filter(text)`, which returns a dict with detected flags, a PASS/FAIL/REVIEW decision, and processing metadata. The pipeline logic (chunking, RAG, inference, parsing, deduplication, decision) runs in-process — F4 is not a deployed web service.
 
 On the opp-capture side, the integration surface is minimal: a new adapter behind an existing port, plus a config toggle. Opp-capture may want to disable F4 at times to avoid costs when the pipeline doesn't need it. If F4 gets deleted, opp-capture loses nothing. This follows opp-capture's own OEA principles — no invasive species.
 
-Consequences: I own my own infra stack. More setup work upfront, but clean separation. The opp-capture adapter is minimal — a new adapter behind an existing port — and is part of the evaluation plan for delta comparison.
+Consequences: I own my own infra (Bedrock model import, IAM) but not running compute. Clean separation. The opp-capture adapter is minimal — a new adapter behind an existing port — and is part of the evaluation plan for delta comparison.
 
-### API Contract
+### Library Contract
 
-Thick contract. The service accepts RFP text and returns JSON containing both the detected flags and a PASS/FAIL/REVIEW decision. The flow inside the service: chunk the text → model detects flags per chunk → parse and retry once on failure → deduplicate flags across chunks → apply algorithmic decision logic → return JSON.
+Thick contract. `f4.filter(text)` accepts RFP text and returns a dict containing detected flags, a PASS/FAIL/REVIEW decision, and processing metadata. The flow inside the library: chunk the text → model detects flags per chunk → parse and retry once on failure → deduplicate flags across chunks → apply algorithmic decision logic → return result.
 
 The response includes an `unparsed_chunks` count so the caller knows if any chunks failed parsing after retry.
 
@@ -123,17 +123,17 @@ If it doesn't help, that's a valid finding worth documenting.
 
 ### Frontend
 
-Gradio app with a `gr.File()` upload component. Accepts PDF/DOCX, extracts text (duplicating opp-capture's extractors for demo convenience), runs the F4 pipeline, and displays the flag report and decision. This is a demo surface — the real integration point is the API.
+Gradio app with a `gr.File()` upload component. Accepts PDF/DOCX, extracts text (duplicating opp-capture's extractors for demo convenience), calls `f4.filter()`, and displays the flag report and decision. This is a demo surface — the real integration point is the library.
 
-Consequences: text extraction is duplicated from opp-capture. The API contract itself accepts pre-extracted text. For production use via opp-capture, text extraction happens on their side.
+Consequences: text extraction is duplicated from opp-capture. The library itself accepts pre-extracted text. For production use via opp-capture, text extraction happens on their side.
 
 ### Text Input
 
-The API accepts pre-extracted text, not files. Opp-capture already handles text extraction (pdfplumber, docx). The Gradio frontend handles extraction locally for demo purposes only.
+`f4.filter()` accepts pre-extracted text, not files. Opp-capture already handles text extraction (pdfplumber, docx). The Gradio frontend handles extraction locally for demo purposes only.
 
 ### Observability
 
-The service will log per-batch running time, token counts (from Bedrock response metadata where available, estimated client-side via the model's tokenizer otherwise), and inference cost. This is essential — without it, there's no way to empirically compare F4 against the Claude baseline (see below) and justify or invalidate the fine-tuned model approach.
+The library will log per-batch running time, token counts (from Bedrock response metadata where available, estimated client-side via the model's tokenizer otherwise), and inference cost. This is essential — without it, there's no way to empirically compare F4 against the Claude baseline (see below) and justify or invalidate the fine-tuned model approach.
 
 ### Cost vs. Claude Baseline
 
@@ -145,7 +145,7 @@ This is one reason F4 tracks running time and token usage per batch (see Observa
 
 This project touches nearly every skill from the course: LoRA fine-tuning, RAG, prompt optimization, constrained output via prompting, evaluation, Bedrock deployment, and frontend. The risk is breadth — there's a lot to build in two weeks.
 
-The configurable flag set and decision logic make this potentially productizable beyond Flexion. There's no reason another organization couldn't define their own flags and use this service for their own RFP screening.
+The configurable flag set and decision logic make this potentially productizable beyond Flexion. There's no reason another organization couldn't define their own flags and use this library for their own RFP screening.
 
 The standalone architecture means I can develop and demo independently of opp-capture's release cycle. The opp-capture adapter is needed for the delta evaluation but is minimal work given opp-capture's existing port/adapter pattern.
 
@@ -153,9 +153,9 @@ The standalone architecture means I can develop and demo independently of opp-ca
 
 Model & Inference: LoRA fine-tuned model, synthetic training data, real RFP test set, RAG for extensibility, TextGrad prompt optimization.
 
-Production Environment: Bedrock Custom Model Import. Standalone service with own infra. Opp-capture adapter for delta evaluation. Observability for cost comparison against Claude baseline.
+Production Environment: Bedrock Custom Model Import. Library with own infra (Terraform for model import, IAM). Opp-capture adapter for delta evaluation. Observability for cost comparison against Claude baseline.
 
-Inference Pipeline: Chunking → RAG retrieval → model inference → parse/retry → flag deduplication → algorithmic decision → JSON response.
+Inference Pipeline: `f4.filter(text)` → chunking → RAG retrieval → model inference → parse/retry → flag deduplication → algorithmic decision → result dict.
 
 Documentation: This ADR, plus technical docs on model selection, training data generation, evaluation results, and deployment.
 

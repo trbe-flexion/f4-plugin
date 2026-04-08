@@ -1,8 +1,8 @@
 # F4: Flexion Fast Fail Filtering
 
-A standalone service that detects categories of flags in RFP text using a fine-tuned small model. Designed as a plug-in for the opp-capture pipeline.
+A Python library that detects categories of flags in RFP text using a fine-tuned small model. Designed as a plug-in for the opp-capture pipeline.
 
-The service accepts extracted RFP text via API, chunks it, runs each chunk through a LoRA fine-tuned model augmented with RAG context, parses detected flags, deduplicates across chunks, and returns a JSON response with flags and a PASS/FAIL/REVIEW decision.
+`f4.filter(text)` accepts extracted RFP text, chunks it, runs each chunk through a LoRA fine-tuned model augmented with RAG context, parses detected flags, deduplicates across chunks, and returns a dict with flags, a PASS/FAIL/REVIEW decision, and processing metadata.
 
 See the [Architectural Decision Record](final_adr.md) for full design details.
 
@@ -11,7 +11,7 @@ See the [Architectural Decision Record](final_adr.md) for full design details.
 ```
 f4-plugin/
 ├── src/
-│   ├── api/            # Service API layer
+│   ├── api/            # Public library interface
 │   ├── chunking/       # Text chunking logic
 │   ├── inference/      # Bedrock model calls
 │   ├── rag/            # ChromaDB retrieval
