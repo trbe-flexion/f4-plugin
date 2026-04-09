@@ -45,9 +45,6 @@ chroma_data/
 .DS_Store
 Thumbs.db
 
-# Personal notes
-.personal-notes/
-
 # Terraform
 .terraform/
 *.tfstate
@@ -57,3 +54,6 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Personal notes
+.development-notes/presentation-notes.md

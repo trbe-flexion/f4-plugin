@@ -57,7 +57,9 @@ The response includes an `unparsed_chunks` count so the caller knows if any (and
 
 ### Chunking Strategy
 
-RFPs will be chunked at roughly 512-1024 tokens as a starting point, tunable based on testing. Chunks will overlap to avoid missing context at boundaries. Each chunk is independently sent to the model for flag detection. Flags are deduplicated across all chunks — either a flag is present in the RFP or it isn't. Some flags may depend on the presence of others: TBD if special processing will be required.
+RFPs will be chunked at roughly 512-1024 tokens as a starting point, tunable based on testing. Chunks will overlap to avoid missing context at boundaries. Each chunk is independently sent to the model for flag detection. Flags are deduplicated across all chunks — either a flag is present in the RFP or it isn't.
+
+Known limitation: some flags (e.g., `brownfield`, `feature_factory`, marginal investment sub-criteria) may only be inferable from context spread across multiple chunks. The independent-chunk strategy may miss these. This is acknowledged and deferred — not addressed in this project, but a candidate for post-final improvement if evaluation shows it's a meaningful problem in practice.
 
 Chunks are sent to the Bedrock endpoint concurrently using a bounded concurrency pool (tunable max_workers, default TBD based on testing). Bedrock Custom Model Import endpoints handle concurrent invocations, but have throttling limits that depend on provisioned CMUs. Wall-clock inference time scales with chunk count divided by concurrency limit rather than chunk count alone. This is a free latency win — Bedrock pricing is per-CMU-minute regardless of utilization, so parallel requests should cost the same as sequential ones.
 
@@ -73,16 +75,20 @@ TBD. The algorithmic rules mapping flag combinations to FILTER/REVIEW outcomes a
 
 ### Model Selection
 
-TBD pending research. The gating constraint is Bedrock Custom Model Import, which supports a limited range of models.
+**Selected: meta-llama/Llama-3.2-3B-Instruct**
 
-Candidates under consideration:
+All candidate architectures (Llama, Qwen, Mistral) are supported by Bedrock Custom Model Import. Model selection was driven by IFEval score — the primary proxy for instruction-following and output format compliance, which is the highest risk given no constrained generation on Bedrock.
 
-- Llama 3.2 1B/3B — smallest Llama, fast inference, lowest Bedrock cost
-- Qwen2.5-3B — prior experience from HW9/HW10
-- Mistral 7B — strong instruction-following
-- Llama 3.1 8B / Qwen2.5-7B — fallback if 3B models underperform
+IFEval scores from the Open LLM Leaderboard:
 
-For a narrow classification task (detect known flags from ~512-1024 token chunks), a 3B model is likely sufficient, and the smaller/cheaper the model, the more likely it will compare favorably against a more expensive OOTB LLM like Claude.
+- Llama 3.2 3B-Instruct: **73.93%**
+- Qwen2.5-3B-Instruct: 64.75%
+- Mistral-7B-Instruct-v0.3: 54.65% (7B, no 3B variant available)
+- Llama 3.2 1B-Instruct: 56.98% (ruled out on IFEval and capacity)
+
+Llama 3.2 3B also has a proven Bedrock Custom Model Import path — the same architecture was successfully imported in a prior assignment (1B variant), including a known fix for the `tokenizer_class` field in `tokenizer_config.json` (must be the user-facing class name, e.g. `LlamaTokenizerFast`, not the backend class).
+
+Fallback if 3B underperforms after fine-tuning: Llama 3.1 8B-Instruct or Qwen2.5-7B-Instruct.
 
 After LoRA fine-tuning, adapters must be merged back into the base model and exported as Hugging Face safetensors format for Bedrock Custom Model Import.
 
