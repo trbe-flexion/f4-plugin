@@ -14,31 +14,32 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [x] Select base model
 
 ## 4. Flag Set & Output Format
-- [ ] Review and finalize flag set (`collated-flag-set.md`)
-- [ ] Confirm output format (CSV-like lines)
+- [x] Review and finalize flag set (`collated-flag-set.md`)
+- [x] Confirm output format (CSV-like lines)
 
 ## 5. Synthetic Training Data
-- [ ] Design data generation prompts for Claude distillation
-- [ ] Generate synthetic RFP chunks with flag labels
-- [ ] Include: no flags, single flags, multiple flags, adversarial, ambiguous examples
-- [ ] 80/20 train/eval split
+- [x] Design data generation prompts for Claude distillation (`scripts/generate_data.py`)
+- [x] Generate synthetic RFP chunks with flag labels (`data/train.jsonl`, `data/eval.jsonl`)
+- [x] Include: no flags, single flags, multiple flags, adversarial, ambiguous examples (`data/train.jsonl`)
+- [x] 80/20 train/eval split (`data/train.jsonl`, `data/eval.jsonl`)
 
-## 6. Real RFP Test Set
+## 6. Real RFP Test Set *(deferred — using a held-out subset of synthetic data as test set for now)*
+- [x] Hold-out subset of synthetic data for test set.
 - [ ] Source real RFP chunks from Tom Willis
 - [ ] Manually label with expected flags
 
-## 7. LoRA Fine-Tuning
+## 7. RAG Setup
+- [ ] Set up ChromaDB vector store
+- [ ] Populate with flag definitions and examples (`data/rag_seeds.jsonl`)
+- [ ] Add real RFP language from Tom
+- [ ] Tune top-k retrieval parameter
+
+## 8. LoRA Fine-Tuning *(RAG must be in place first so training uses RAG-augmented prompts)*
 - [ ] Set up training environment (SageMaker)
 - [ ] Fine-tune on synthetic training set
 - [ ] Evaluate on synthetic eval set (flag precision, chunk recall)
 - [ ] Merge LoRA adapters back into base model
 - [ ] Export as HF safetensors
-
-## 8. RAG Setup
-- [ ] Set up ChromaDB vector store
-- [ ] Populate with flag definitions and examples
-- [ ] Add real RFP language from Tom
-- [ ] Tune top-k retrieval parameter
 
 ## 9. Bedrock Deployment
 - [ ] Terraform for Bedrock Custom Model Import + IAM

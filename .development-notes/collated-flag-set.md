@@ -104,6 +104,7 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   - onsite_madison
   - large_team
   - marginal_short_duration
+  - no_flag (special: output when no flags are detected in a chunk; filtered out by harness, not a real flag)
 
   ---
   Drop (Not assigned to small LLM)
