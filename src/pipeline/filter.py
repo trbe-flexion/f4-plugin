@@ -8,6 +8,7 @@ from src.decision.engine import FilterDecisionEngine
 from src.domain.entities import FilterResult
 from src.domain.parsing import parse_flags
 from src.domain.protocols import FlagDetector
+from src.rag.retriever import format_context
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,9 @@ logger = logging.getLogger(__name__)
 class F4Pipeline:
     """Orchestrates the F4 filtering pipeline.
 
-    Chunks text, runs inference concurrently, parses output,
-    deduplicates flags, and applies decision logic.
+    Chunks text, optionally retrieves RAG context, runs inference
+    concurrently, parses output, deduplicates flags, and applies
+    decision logic.
     """
 
     def __init__(
@@ -27,6 +29,8 @@ class F4Pipeline:
         overlap_tokens: int = 64,
         max_workers: int = 4,
         red_flag_threshold: int = 999,
+        rag_store=None,
+        rag_top_k: int = 3,
     ):
         self.flag_detector = flag_detector
         self.tokenizer = tokenizer
@@ -34,6 +38,19 @@ class F4Pipeline:
         self.overlap_tokens = overlap_tokens
         self.max_workers = max_workers
         self.decision_engine = FilterDecisionEngine(red_flag_threshold)
+        self.rag_store = rag_store
+        self.rag_top_k = rag_top_k
+
+    def _build_prompt(self, chunk: str) -> str:
+        """Build the prompt for a chunk, with RAG context if available."""
+        if self.rag_store is None:
+            return chunk
+
+        results = self.rag_store.query(chunk, top_k=self.rag_top_k)
+        if not results:
+            return chunk
+
+        return format_context(results, chunk)
 
     def _process_chunk(self, chunk: str) -> list[str] | None:
         """Detect flags in a single chunk with one retry on parse failure.
@@ -41,8 +58,9 @@ class F4Pipeline:
         Returns list of flags (possibly empty for no_flag), or None if
         both attempts produced unparseable output.
         """
+        prompt = self._build_prompt(chunk)
         for _attempt in range(2):
-            raw_output = self.flag_detector.detect_flags(chunk)
+            raw_output = self.flag_detector.detect_flags(prompt)
             flags = parse_flags(raw_output)
             if flags or raw_output.strip() == "no_flag":
                 return flags
