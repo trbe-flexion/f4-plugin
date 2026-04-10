@@ -90,8 +90,8 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
 def main(args: list[str] | None = None) -> None:
     import torch
     from datasets import Dataset
-    from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
-    from trl import SFTTrainer
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from trl import SFTConfig, SFTTrainer
 
     parsed = parse_args(args)
 
@@ -114,14 +114,21 @@ def main(args: list[str] | None = None) -> None:
 
     lora_config = build_lora_config(r=parsed.lora_r, lora_alpha=parsed.lora_alpha)
 
-    training_args = TrainingArguments(
+    total_steps = (
+        len(train_dataset)
+        // (parsed.batch_size * parsed.gradient_accumulation_steps)
+        * parsed.epochs
+    )
+    warmup_steps = int(total_steps * parsed.warmup_ratio)
+
+    sft_config = SFTConfig(
         output_dir=parsed.output_dir,
         num_train_epochs=parsed.epochs,
         per_device_train_batch_size=parsed.batch_size,
         per_device_eval_batch_size=parsed.batch_size,
         gradient_accumulation_steps=parsed.gradient_accumulation_steps,
         learning_rate=parsed.learning_rate,
-        warmup_ratio=parsed.warmup_ratio,
+        warmup_steps=warmup_steps,
         weight_decay=parsed.weight_decay,
         max_grad_norm=parsed.max_grad_norm,
         fp16=True,
@@ -131,19 +138,17 @@ def main(args: list[str] | None = None) -> None:
         report_to="none",
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
+        max_length=parsed.max_seq_length,
+        packing=False,
     )
-
-    formatting_func = make_formatting_func(tokenizer)
 
     trainer = SFTTrainer(
         model=model,
-        args=training_args,
+        args=sft_config,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        formatting_func=formatting_func,
         peft_config=lora_config,
-        max_seq_length=parsed.max_seq_length,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     print("Starting training...")
