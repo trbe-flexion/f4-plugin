@@ -38,9 +38,9 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 
 ## 8. LoRA Fine-Tuning *(training scripts: `scripts/train.py`, `scripts/merge_and_export.py`)*
 - [x] Set up training environment (SageMaker ml.g6.xlarge)
-- [ ] Fine-tune on synthetic training set *(in progress — training running)*
+- [x] Fine-tune on synthetic training set (3 epochs, eval loss 0.53, token accuracy 86.5%)
 - [x] Evaluation script (`evaluation/evaluate.py`) — flag precision, chunk recall, format compliance, per-flag breakdown
-- [ ] Run evaluation on test set after training completes
+- [x] Run evaluation on test set (F1: 94.1%, precision: 97.3%, recall: 91.1%, compliance: 100%). Results in `.development-notes/evaluation_results.md`.
 - [ ] Merge LoRA adapters back into base model
 - [ ] Export as HF safetensors
 
@@ -64,10 +64,10 @@ Training (SageMaker ml.g6.xlarge):
 Populate RAG store:
   uv run python scripts/populate_rag.py
 
-Evaluation (SageMaker, after training):
-  uv run python evaluation/evaluate.py                  # fine-tuned only (default)
-  uv run python evaluation/evaluate.py --base-only      # base model only
-  uv run python evaluation/evaluate.py --compare        # both + comparison table
+Evaluation (SageMaker, after training — use PYTHONPATH=. for module resolution):
+  PYTHONPATH=. uv run python evaluation/evaluate.py                  # fine-tuned only (default)
+  PYTHONPATH=. uv run python evaluation/evaluate.py --base-only      # base model only
+  PYTHONPATH=. uv run python evaluation/evaluate.py --compare        # both + comparison table
   Results saved to evaluation/baseline.json and evaluation/finetuned.json
 
 Gradio demo (needs real pipeline deps wired):

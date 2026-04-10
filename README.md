@@ -116,9 +116,9 @@ uv run python scripts/merge_and_export.py
 
 On SageMaker (after training):
 ```bash
-uv run python evaluation/evaluate.py                  # fine-tuned model (default)
-uv run python evaluation/evaluate.py --base-only      # base model baseline
-uv run python evaluation/evaluate.py --compare        # both + side-by-side comparison
+PYTHONPATH=. uv run python evaluation/evaluate.py                  # fine-tuned model (default)
+PYTHONPATH=. uv run python evaluation/evaluate.py --base-only      # base model baseline
+PYTHONPATH=. uv run python evaluation/evaluate.py --compare        # both + side-by-side comparison
 ```
 
 Outputs flag-level precision, chunk-level recall, format compliance, per-flag breakdown, and saves full results to `evaluation/`.
