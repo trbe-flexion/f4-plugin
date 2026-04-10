@@ -28,15 +28,15 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [ ] Source real RFP chunks from Tom Willis
 - [ ] Manually label with expected flags
 
-## 7. RAG Setup
+## 7. RAG Setup *(deferred — RAG context baked into training data; live ChromaDB for inference pipeline later)*
 - [ ] Set up ChromaDB vector store
 - [ ] Populate with flag definitions and examples (`data/rag_seeds.jsonl`)
 - [ ] Add real RFP language from Tom
 - [ ] Tune top-k retrieval parameter
 
-## 8. LoRA Fine-Tuning
-- [ ] Set up training environment (SageMaker)
-- [ ] Fine-tune on synthetic training set
+## 8. LoRA Fine-Tuning *(training scripts: `scripts/train.py`, `scripts/merge_and_export.py`)*
+- [x] Set up training environment (SageMaker ml.g6.xlarge)
+- [ ] Fine-tune on synthetic training set *(in progress — training running)*
 - [ ] Evaluate on synthetic eval set (flag precision, chunk recall)
 - [ ] Merge LoRA adapters back into base model
 - [ ] Export as HF safetensors
@@ -47,14 +47,16 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [ ] Verify endpoint inference
 
 ## 10. Library Layer
-- [ ] Implement `f4.filter(text)` public interface
-- [ ] Text chunking (512-1024 tokens, overlap)
-- [ ] RAG retrieval per chunk
-- [ ] Concurrent Bedrock inference (bounded concurrency)
-- [ ] Parse/retry logic (1 retry, `unparsed_chunks` counter)
-- [ ] Flag deduplication across chunks
-- [ ] Algorithmic decision logic (configurable rules)
+- [x] Implement `f4.filter(text)` public interface (`src/pipeline/filter.py`)
+- [x] Text chunking (token-boundary, configurable overlap) (`src/chunking/chunker.py`)
+- [ ] RAG retrieval per chunk *(deferred — depends on ChromaDB setup in step 7)*
+- [x] Concurrent Bedrock inference (bounded ThreadPoolExecutor) (`src/pipeline/filter.py`)
+- [x] Parse/retry logic (1 retry, unparsed tracking) (`src/domain/parsing.py`, `src/pipeline/filter.py`)
+- [x] Flag deduplication across chunks (`src/pipeline/filter.py`)
+- [x] Algorithmic decision logic (black flag filter + configurable red threshold) (`src/decision/engine.py`)
+- [x] Domain: FilterResult entity, FlagDetector protocol, flag taxonomy (`src/domain/`)
 - [ ] Observability: timing, token counts, cost logging
+- [ ] BedrockFlagDetector adapter *(depends on Bedrock deployment in step 9)*
 
 ## 11. Prompt Optimization (TextGrad)
 - [ ] Set up TextGrad on SageMaker
