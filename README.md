@@ -1,6 +1,8 @@
-<img src="assets/f4_logo-1.png" alt="F4 Logo" width="48" align="left" style="margin-right: 12px;">
-
-# F4: Flexion Fast Fail Filtering
+<h1 align="center">
+  <img src="assets/f4_logo-1.png" alt="F4 Logo" width="64">&nbsp;
+  F4: Flexion Fast Fail Filtering
+  &nbsp;<img src="assets/f4_logo-1.png" alt="F4 Logo" width="64">
+</h1>
 
 A Python library that detects categories of flags in RFP text using a fine-tuned small model. Designed as a plug-in for the opp-capture pipeline.
 
