@@ -113,6 +113,10 @@ Train/Eval/Test Split:
 - Eval Set: 20% of Synthetic Set
 - Test Set: Small set of real RFP chunks.
 
+### Testing
+
+80% test coverage minimum, enforced via `pytest --cov`. This was the standard across course homeworks and is a good minimum threshold for a project of this scope. Training infrastructure, data preprocessing, and library code are all testable. Model calls and Bedrock interactions are mocked in tests — tests must not depend on GPU availability or live endpoints.
+
 ### Evaluation Strategy
 
 Finetuning evaluation across training epochs and on the held-out eval set will depend on three metrics.

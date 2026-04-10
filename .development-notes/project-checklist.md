@@ -34,7 +34,7 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [ ] Add real RFP language from Tom
 - [ ] Tune top-k retrieval parameter
 
-## 8. LoRA Fine-Tuning *(RAG must be in place first so training uses RAG-augmented prompts)*
+## 8. LoRA Fine-Tuning
 - [ ] Set up training environment (SageMaker)
 - [ ] Fine-tune on synthetic training set
 - [ ] Evaluate on synthetic eval set (flag precision, chunk recall)
