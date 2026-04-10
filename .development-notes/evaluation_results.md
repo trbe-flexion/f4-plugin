@@ -1,4 +1,4 @@
-# F4 Evaluation Results
+# F4 Evaluation Results 4/10
 
 Model: meta-llama/Llama-3.2-3B-Instruct
 Fine-tuning: LoRA, 3 epochs, 1670 training examples, max_seq_length 2048
