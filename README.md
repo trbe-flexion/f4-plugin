@@ -1,3 +1,5 @@
+<img src="assets/f4_logo-1.png" alt="F4 Logo" width="80" align="left" style="margin-right: 12px;">
+
 # F4: Flexion Fast Fail Filtering
 
 A Python library that detects categories of flags in RFP text using a fine-tuned small model. Designed as a plug-in for the opp-capture pipeline.
