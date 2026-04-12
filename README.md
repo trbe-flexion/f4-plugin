@@ -49,11 +49,15 @@ f4-plugin/
 │   ├── decision/      # FilterDecisionEngine
 │   ├── inference/     # Bedrock adapter (planned)
 │   └── frontend/      # Gradio demo app
-├── scripts/
+├── training/
 │   ├── train.py               # LoRA fine-tuning (SFTTrainer)
 │   ├── merge_and_export.py    # Merge LoRA → safetensors for Bedrock
 │   ├── check_token_lengths.py # Training data analysis
-│   └── populate_rag.py        # Seed ChromaDB from rag_seeds.jsonl
+│   └── evaluate.py            # Model evaluation on test set
+├── scripts/
+│   ├── generate_data.py       # Synthetic data generation (Claude API)
+│   ├── populate_rag.py        # Seed ChromaDB from rag_seeds.jsonl
+│   └── split_test.py          # Split test set from eval data
 ├── tests/             # 111 tests, 96% coverage
 ├── data/              # Training, eval, test JSONL + RAG seeds
 └── infra/             # Terraform for Bedrock Custom Model Import
@@ -107,18 +111,18 @@ ruff format .
 
 On SageMaker (ml.g6.xlarge):
 ```bash
-uv run python scripts/check_token_lengths.py
-uv run python scripts/train.py --max-seq-length 2048
-uv run python scripts/merge_and_export.py
+uv run python training/check_token_lengths.py
+uv run python training/train.py --max-seq-length 2048
+uv run python training/merge_and_export.py
 ```
 
 ## Evaluation
 
 On SageMaker (after training):
 ```bash
-PYTHONPATH=. uv run python evaluation/evaluate.py                  # fine-tuned model (default)
-PYTHONPATH=. uv run python evaluation/evaluate.py --base-only      # base model baseline
-PYTHONPATH=. uv run python evaluation/evaluate.py --compare        # both + side-by-side comparison
+PYTHONPATH=. uv run python training/evaluate.py                  # fine-tuned model (default)
+PYTHONPATH=. uv run python training/evaluate.py --base-only      # base model baseline
+PYTHONPATH=. uv run python training/evaluate.py --compare        # both + side-by-side comparison
 ```
 
 Outputs flag-level precision, chunk-level recall, format compliance, per-flag breakdown, and saves full results to `evaluation/`.

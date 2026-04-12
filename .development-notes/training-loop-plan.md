@@ -50,7 +50,7 @@ Write this file. You're reading it.
 ### 2. Check token lengths in training data
 
 Before setting max_seq_length, measure the actual token distribution in data/train.jsonl after
-chat template expansion. Script in scripts/check_token_lengths.py. Outputs min, max, mean, p95,
+chat template expansion. Script in training/check_token_lengths.py. Outputs min, max, mean, p95,
 p99 token counts. This tells us whether 1024 is sufficient or if we need 2048.
 
 ### 3. Add training dependencies to pyproject.toml
@@ -66,7 +66,7 @@ Add a training dependency group (not main deps — these are SageMaker-only):
 
 ### 4. Write the training script
 
-scripts/train.py — the core deliverable. Structure:
+training/train.py — the core deliverable. Structure:
 
 a. Load tokenizer and set pad_token = eos_token
 b. Load data/train.jsonl and data/eval.jsonl as datasets
@@ -83,7 +83,7 @@ configuration and data loading glue.
 
 ### 5. Write the merge/export script
 
-scripts/merge_and_export.py — post-training step required for Bedrock Custom Model Import.
+training/merge_and_export.py — post-training step required for Bedrock Custom Model Import.
 
 a. Load base model
 b. Load LoRA adapter from checkpoint
@@ -124,9 +124,9 @@ Mark checklist items complete as each step finishes.
 
 ## File Map
 
-- scripts/check_token_lengths.py (step 2)
-- scripts/train.py (step 4)
-- scripts/merge_and_export.py (step 5)
+- training/check_token_lengths.py (step 2)
+- training/train.py (step 4)
+- training/merge_and_export.py (step 5)
 - tests/test_training.py (step 6)
 
 ## Notes

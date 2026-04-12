@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from evaluation.evaluate import (
+from training.evaluate import (
     compute_metrics,
     load_test_examples,
     parse_args,

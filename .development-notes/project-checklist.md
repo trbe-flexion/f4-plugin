@@ -36,13 +36,15 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [ ] Add real RFP language from Tom
 - [ ] Tune top-k retrieval parameter
 
-## 8. LoRA Fine-Tuning *(training scripts: `scripts/train.py`, `scripts/merge_and_export.py`)*
+## 8. LoRA Fine-Tuning *(training scripts: `training/train.py`, `training/merge_and_export.py`)*
 - [x] Set up training environment (SageMaker ml.g6.xlarge)
 - [x] Fine-tune on synthetic training set (3 epochs, eval loss 0.53, token accuracy 86.5%)
-- [x] Evaluation script (`evaluation/evaluate.py`) — flag precision, chunk recall, format compliance, per-flag breakdown
+- [x] Evaluation script (`training/evaluate.py`) — flag precision, chunk recall, format compliance, per-flag breakdown
 - [x] Run evaluation on test set (F1: 94.1%, precision: 97.3%, recall: 91.1%, compliance: 100%). Results in `.development-notes/evaluation_results.md`.
 - [ ] Merge LoRA adapters back into base model
 - [ ] Export as HF safetensors
+
+**Decision:** Proceeding with current fine-tuned model as-is. Results are strong enough to build the full library against. Further tuning (TextGrad prompt optimization, additional training data, onsite_required/brownfield recall gaps) is plug-and-play — swap in improved models later without changing library code.
 
 ## 9. Bedrock Deployment
 - [ ] Terraform for Bedrock Custom Model Import + IAM
@@ -57,17 +59,17 @@ Tests (local, no GPU):
 
 Training (SageMaker ml.g6.xlarge):
   uv sync --group training --group dev
-  uv run python scripts/check_token_lengths.py
-  uv run python scripts/train.py --max-seq-length 2048
-  uv run python scripts/merge_and_export.py
+  uv run python training/check_token_lengths.py
+  uv run python training/train.py --max-seq-length 2048
+  uv run python training/merge_and_export.py
 
 Populate RAG store:
   uv run python scripts/populate_rag.py
 
 Evaluation (SageMaker, after training — use PYTHONPATH=. for module resolution):
-  PYTHONPATH=. uv run python evaluation/evaluate.py                  # fine-tuned only (default)
-  PYTHONPATH=. uv run python evaluation/evaluate.py --base-only      # base model only
-  PYTHONPATH=. uv run python evaluation/evaluate.py --compare        # both + comparison table
+  PYTHONPATH=. uv run python training/evaluate.py                  # fine-tuned only (default)
+  PYTHONPATH=. uv run python training/evaluate.py --base-only      # base model only
+  PYTHONPATH=. uv run python training/evaluate.py --compare        # both + comparison table
   Results saved to evaluation/baseline.json and evaluation/finetuned.json
 
 Gradio demo (needs real pipeline deps wired):

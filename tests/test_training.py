@@ -10,24 +10,24 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.check_token_lengths import (
+from training.check_token_lengths import (
     compute_statistics,
     compute_token_lengths,
     load_messages,
     print_statistics,
 )
-from scripts.merge_and_export import (
+from training.merge_and_export import (
     EXPECTED_TOKENIZER_CLASS,
     fix_tokenizer_class,
 )
-from scripts.merge_and_export import (
+from training.merge_and_export import (
     parse_args as merge_parse_args,
 )
-from scripts.train import (
+from training.train import (
     load_jsonl_records,
     make_formatting_func,
 )
-from scripts.train import (
+from training.train import (
     parse_args as train_parse_args,
 )
 
@@ -184,7 +184,7 @@ class TestCheckTokenLengthsMain:
 
         mock_transformers = MagicMock(AutoTokenizer=mock_auto_tokenizer)
         with patch.dict(sys.modules, {"transformers": mock_transformers}):
-            from scripts.check_token_lengths import main
+            from training.check_token_lengths import main
 
             main(["--data", str(sample_jsonl)])
 
@@ -194,7 +194,7 @@ class TestCheckTokenLengthsMain:
 
     def test_main_missing_file(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="Data file not found"):
-            from scripts.check_token_lengths import main
+            from training.check_token_lengths import main
 
             main(["--data", str(tmp_path / "nonexistent.jsonl")])
 
@@ -258,7 +258,7 @@ class TestBuildLoraConfig:
         mock_peft.TaskType = mock_task_type
 
         with patch.dict(sys.modules, {"peft": mock_peft}):
-            from scripts.train import build_lora_config
+            from training.train import build_lora_config
 
             build_lora_config()
 
@@ -280,7 +280,7 @@ class TestBuildLoraConfig:
         mock_peft.TaskType = mock_task_type
 
         with patch.dict(sys.modules, {"peft": mock_peft}):
-            from scripts.train import build_lora_config
+            from training.train import build_lora_config
 
             build_lora_config(r=8)
 
@@ -407,9 +407,9 @@ class TestMergeMain:
         }
 
         with patch.dict(sys.modules, mock_modules):
-            from scripts.merge_and_export import main
+            from training.merge_and_export import main
 
-            with patch("scripts.merge_and_export.fix_tokenizer_class") as mock_fix:
+            with patch("training.merge_and_export.fix_tokenizer_class") as mock_fix:
                 main(
                     [
                         "--adapter-dir",
@@ -428,7 +428,7 @@ class TestMergeMain:
         mock_fix.assert_called_once_with(str(output_dir))
 
     def test_missing_adapter_dir(self, tmp_path):
-        from scripts.merge_and_export import main
+        from training.merge_and_export import main
 
         with pytest.raises(FileNotFoundError, match="Adapter directory not found"):
             main(["--adapter-dir", str(tmp_path / "nonexistent")])
