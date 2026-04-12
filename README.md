@@ -47,7 +47,7 @@ f4-plugin/
 │   ├── chunking/      # Token-boundary text chunking
 │   ├── rag/           # ChromaDB store + retriever
 │   ├── decision/      # FilterDecisionEngine
-│   ├── inference/     # Bedrock adapter (planned)
+│   ├── inference/     # BedrockFlagDetector adapter
 │   └── frontend/      # Gradio demo app
 ├── training/
 │   ├── train.py               # LoRA fine-tuning (SFTTrainer)
@@ -130,7 +130,9 @@ Outputs flag-level precision, chunk-level recall, format compliance, per-flag br
 ## Gradio Demo
 
 ```bash
-uv run python -m src.frontend.app --share --auth user:password
+uv run python -m src.frontend --model-arn <BEDROCK_MODEL_ARN> --share --auth user:password
 ```
 
-Uploads PDF/DOCX files, extracts text, runs the full pipeline, and displays the decision with detailed logs.
+Uploads PDF/DOCX files, extracts text, runs the full pipeline via Bedrock, and displays the decision with detailed logs. Requires AWS credentials with Bedrock InvokeModel permission.
+
+Options: `--no-rag` (skip RAG retrieval), `--max-workers N` (concurrent Bedrock calls), `--region REGION`.
