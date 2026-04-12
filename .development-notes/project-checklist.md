@@ -41,15 +41,25 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [x] Fine-tune on synthetic training set (3 epochs, eval loss 0.53, token accuracy 86.5%)
 - [x] Evaluation script (`training/evaluate.py`) — flag precision, chunk recall, format compliance, per-flag breakdown
 - [x] Run evaluation on test set (F1: 94.1%, precision: 97.3%, recall: 91.1%, compliance: 100%). Results in `.development-notes/evaluation_results.md`.
-- [ ] Merge LoRA adapters back into base model
-- [ ] Export as HF safetensors
+- [x] Merge LoRA adapters back into base model
+- [x] Export as HF safetensors (uploaded to s3://trbe-f4-finetuned-model/)
 
 **Decision:** Proceeding with current fine-tuned model as-is. Results are strong enough to build the full library against. Further tuning (TextGrad prompt optimization, additional training data, onsite_required/brownfield recall gaps) is plug-and-play — swap in improved models later without changing library code.
 
+### 8b. Retrain with Realistic RAG *(plan: `.development-notes/retrain-plan.md`)*
+- [ ] Update `generate_data.py` to use real ChromaDB retrieval instead of `simulate_rag_context`
+- [ ] Regenerate training data (reuse chunks, re-wrap RAG context)
+- [ ] Retrain on SageMaker
+- [ ] Re-evaluate (compare against v1 results)
+- [ ] Re-merge, re-upload to S3, re-import to Bedrock
+- [ ] Re-test with real RFP (VA solicitation)
+- [ ] Parser leniency: handle `none`/`None`, comma-separated flags
+
 ## 9. Bedrock Deployment
 - [ ] Terraform for Bedrock Custom Model Import + IAM
-- [ ] Import merged model to Bedrock
-- [ ] Verify endpoint inference
+- [x] Import merged model to Bedrock (Alt/cohort account)
+- [x] Verify endpoint inference (4/5 smoke test, 100% format compliance)
+- [ ] Migrate to Main account (re-import model, recreate IAM — needs Main credentials from team)
 
 ## How to Run
 
@@ -72,8 +82,14 @@ Evaluation (SageMaker, after training — use PYTHONPATH=. for module resolution
   PYTHONPATH=. uv run python training/evaluate.py --compare        # both + comparison table
   Results saved to evaluation/baseline.json and evaluation/finetuned.json
 
-Gradio demo (needs real pipeline deps wired):
-  uv run python -m src.frontend.app --share --auth user:password
+Gradio demo (local, needs AWS creds for Alt account + transformers for tokenizer):
+  uv sync --group training --group dev
+  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/hzlmk7msk3dn" --share --auth demo:demo
+  Options: --no-rag (skip RAG), --max-workers N (concurrent Bedrock calls), --region REGION
+  Note: first invocation after idle hits Bedrock cold start (~1-2 min)
+
+Bedrock smoke test (local, Alt account creds):
+  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/hzlmk7msk3dn"
 
 Opp-capture integration:
   pip install git+ssh://git@github.com/trbe-flexion/f4-plugin.git
@@ -91,7 +107,7 @@ Opp-capture integration:
 - [x] Algorithmic decision logic (black flag filter + configurable red threshold) (`src/decision/engine.py`)
 - [x] Domain: FilterResult entity, FlagDetector protocol, flag taxonomy (`src/domain/`)
 - [ ] Observability: timing, token counts, cost logging
-- [ ] BedrockFlagDetector adapter *(depends on Bedrock deployment in step 9)*
+- [x] BedrockFlagDetector adapter (`src/inference/bedrock.py`)
 
 ## 11. Prompt Optimization (TextGrad)
 - [ ] Set up TextGrad on SageMaker
@@ -106,7 +122,7 @@ Opp-capture integration:
 - [x] Multi-file concatenation matching opp-capture format
 - [x] Call `f4.filter()` and display decision + pipeline logs
 - [x] `share=True` tunnel + password auth support
-- [ ] Wire with real BedrockFlagDetector + RAG store for live demo
+- [x] Wire with real BedrockFlagDetector + RAG store for live demo (`src/frontend/__main__.py`)
 
 ## 13. Evaluation
 - [ ] Precision/recall on synthetic eval set
@@ -118,3 +134,12 @@ Opp-capture integration:
 ## 14. Documentation & Presentation
 - [ ] Technical docs (model selection, training data, eval results, deployment)
 - [ ] Presentation prep
+
+---
+
+## TEMP: Copy-paste commands (delete when done)
+
+Debug pipeline on test RFP (no RAG):
+```
+PYTHONPATH=. uv run python scripts/debug_pipeline.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/hzlmk7msk3dn" --file "/Users/travisblount-elliott/library 2/downloads/00b8b581c63f44389c7ef5fe55b6638c/36C24226Q0439.docx" --no-rag
+```

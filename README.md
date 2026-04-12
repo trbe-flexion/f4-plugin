@@ -58,7 +58,7 @@ f4-plugin/
 │   ├── generate_data.py       # Synthetic data generation (Claude API)
 │   ├── populate_rag.py        # Seed ChromaDB from rag_seeds.jsonl
 │   └── split_test.py          # Split test set from eval data
-├── tests/             # 111 tests, 96% coverage
+├── tests/             # >80% coverage
 ├── data/              # Training, eval, test JSONL + RAG seeds
 └── infra/             # Terraform for Bedrock Custom Model Import
 ```

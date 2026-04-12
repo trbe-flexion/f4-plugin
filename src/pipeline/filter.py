@@ -24,7 +24,7 @@ class F4Pipeline:
     def __init__(
         self,
         flag_detector: FlagDetector,
-        tokenizer,
+        tokenizer=None,
         max_tokens: int = 512,
         overlap_tokens: int = 64,
         max_workers: int = 4,
