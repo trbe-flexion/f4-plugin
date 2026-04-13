@@ -42,3 +42,30 @@ class TestParseFlags:
         raw = "brownfield\n\n\nagile_methodology\n"
         result = parse_flags(raw)
         assert result == ["brownfield", "agile_methodology"]
+
+    def test_none_returns_empty(self):
+        assert parse_flags("none") == []
+
+    def test_none_capitalized_returns_empty(self):
+        assert parse_flags("None") == []
+
+    def test_comma_separated(self):
+        raw = "waterfall_methodology, onsite_required"
+        result = parse_flags(raw)
+        assert result == ["waterfall_methodology", "onsite_required"]
+
+    def test_comma_and_newline_mixed(self):
+        raw = "waterfall_methodology, onsite_required\nagile_methodology"
+        result = parse_flags(raw)
+        assert result == ["waterfall_methodology", "onsite_required", "agile_methodology"]
+
+    def test_comma_separated_with_prose(self):
+        raw = "waterfall_methodology, some junk, agile_methodology"
+        result = parse_flags(raw)
+        assert result == ["waterfall_methodology", "agile_methodology"]
+
+    def test_none_no_flag_returns_empty(self):
+        assert parse_flags("None, no_flag") == []
+
+    def test_no_flag_case_insensitive(self):
+        assert parse_flags("NO_FLAG") == []

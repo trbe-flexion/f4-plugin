@@ -62,7 +62,7 @@ class F4Pipeline:
         for _attempt in range(2):
             raw_output = self.flag_detector.detect_flags(prompt)
             flags = parse_flags(raw_output)
-            if flags or raw_output.strip() == "no_flag":
+            if flags or raw_output.strip().lower() in ("no_flag", "none"):
                 return flags
         return None
 

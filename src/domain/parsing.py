@@ -1,23 +1,31 @@
 from __future__ import annotations
 
+import re
+
 from src.domain.taxonomy import VALID_FLAGS
 
 
 def parse_flags(raw_output: str) -> list[str]:
     """Parse model output into a list of valid flag names.
 
-    Strips whitespace, splits by newline, filters to known flags.
-    Returns empty list for "no_flag" output or unparseable input.
+    Handles variations: newline-separated, comma-separated, mixed,
+    and 'none'/'None' as aliases for no_flag. Extracts valid flag
+    names even if surrounded by prose.
     """
     if not raw_output or not raw_output.strip():
         return []
 
-    lines = raw_output.strip().splitlines()
+    text = raw_output.strip()
+
+    if text.lower() in ("no_flag", "none"):
+        return []
+
+    # Split on newlines and commas
+    tokens = re.split(r"[\n,]+", text)
+
     flags = []
-    for line in lines:
-        name = line.strip()
-        if name == "no_flag":
-            continue
+    for token in tokens:
+        name = token.strip()
         if name in VALID_FLAGS:
             flags.append(name)
 
