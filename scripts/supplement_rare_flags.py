@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).parent.parent
 DATA_FILE = REPO_ROOT / "data" / "opus_validated_real.jsonl"
 FLAG_DEFS_PATH = REPO_ROOT / ".development-notes" / "notes" / "collated-flag-set.md"
 
-MODEL = "us.anthropic.claude-opus-4-6"
+MODEL = "us.anthropic.claude-opus-4-6-v1"
 BATCH_SIZE = 5
 
 # Flag definitions for the 4 rare flags we know about, plus any others that
