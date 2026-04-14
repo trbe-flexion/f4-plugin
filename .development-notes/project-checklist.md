@@ -23,10 +23,16 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [x] Include: no flags, single flags, multiple flags, adversarial, ambiguous examples (`data/train.jsonl`)
 - [x] 80/20 train/eval split (`data/train.jsonl`, `data/eval.jsonl`)
 
-## 6. Real RFP Test Set *(deferred — using a held-out subset of synthetic data as test set for now)*
-- [x] Hold-out subset of synthetic data for test set.
-- [ ] Source real RFP chunks from Tom Willis
-- [ ] Manually label with expected flags
+## 6. Real RFP Training & Test Data
+- [x] Hold-out subset of synthetic data for test set
+- [ ] Label real RFP data with Claude distillation (~958 RFPs available in `library 2/downloads/`, 2.1GB, mostly PDF/DOCX)
+  - Extract text from real RFP files
+  - Chunk and send to Claude (Sonnet via Bedrock) for flag labeling
+  - Wrap with real ChromaDB RAG context (same as `scripts/rewrap_rag_context.py`)
+  - Output as training-format JSONL
+  - Start with a sample (200-500 RFPs) to keep API costs reasonable
+- [ ] Retrain on mixed synthetic + real data
+- [ ] Source manually labeled test set from Tom Willis for ground-truth evaluation
 
 ## 7. RAG Setup *(ChromaDB store + retriever built; populate script ready)*
 - [x] Set up ChromaDB vector store (`src/rag/store.py`)
@@ -47,13 +53,13 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 **Decision:** Proceeding with current fine-tuned model as-is. Results are strong enough to build the full library against. Further tuning (TextGrad prompt optimization, additional training data, onsite_required/brownfield recall gaps) is plug-and-play — swap in improved models later without changing library code.
 
 ### 8b. Retrain with Realistic RAG *(plan: `.development-notes/retrain-plan.md`)*
-- [ ] Update `generate_data.py` to use real ChromaDB retrieval instead of `simulate_rag_context`
-- [ ] Regenerate training data (reuse chunks, re-wrap RAG context)
-- [ ] Retrain on SageMaker
-- [ ] Re-evaluate (compare against v1 results)
-- [ ] Re-merge, re-upload to S3, re-import to Bedrock
-- [ ] Re-test with real RFP (VA solicitation)
-- [ ] Parser leniency: handle `none`/`None`, comma-separated flags
+- [x] Rewrap training data with real ChromaDB retrieval (`scripts/rewrap_rag_context.py`)
+- [x] Retrain on SageMaker (v2: eval loss 0.514, token accuracy 87.0%)
+- [x] Re-evaluate (v2: F1 83.0%, precision 91.6%, recall 75.9%, compliance 97.5%)
+- [x] Re-merge, re-upload to S3, re-import to Bedrock
+- [x] Fix config.json: `rope_parameters` → `rope_scaling` for Bedrock compatibility (see `bedrock-deployment.md` section 6)
+- [x] Re-test with real RFP — format compliance 100%, but low recall on real RFP text (domain gap)
+- [x] Parser leniency: handle `none`/`None`, comma-separated flags (`src/domain/parsing.py`)
 
 ## 9. Bedrock Deployment
 - [ ] Terraform for Bedrock Custom Model Import + IAM
@@ -82,14 +88,13 @@ Evaluation (SageMaker, after training — use PYTHONPATH=. for module resolution
   PYTHONPATH=. uv run python training/evaluate.py --compare        # both + comparison table
   Results saved to evaluation/baseline.json and evaluation/finetuned.json
 
-Gradio demo (local, needs AWS creds for Alt account + transformers for tokenizer):
-  uv sync --group training --group dev
-  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/hzlmk7msk3dn" --share --auth demo:demo
+Gradio demo (local, needs AWS creds for Alt account):
+  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp" --share --auth demo:demo
   Options: --no-rag (skip RAG), --max-workers N (concurrent Bedrock calls), --region REGION
   Note: first invocation after idle hits Bedrock cold start (~1-2 min)
 
 Bedrock smoke test (local, Alt account creds):
-  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/hzlmk7msk3dn"
+  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp"
 
 Opp-capture integration:
   pip install git+ssh://git@github.com/trbe-flexion/f4-plugin.git
@@ -116,7 +121,7 @@ Opp-capture integration:
 - [ ] Optimize system prompt
 - [ ] Document results (even if it doesn't help)
 
-## 12. Gradio Frontend *(UI built, needs real pipeline wiring after Bedrock adapter)*
+## 12. Gradio Frontend
 - [x] File upload component (PDF/DOCX, multiple files) (`src/frontend/app.py`)
 - [x] Text extraction for demo (pdfplumber + python-docx) (`src/frontend/extraction.py`)
 - [x] Multi-file concatenation matching opp-capture format
@@ -139,7 +144,7 @@ Opp-capture integration:
 
 ## TEMP: Copy-paste commands (delete when done)
 
-Debug pipeline on test RFP (no RAG):
+Debug pipeline, no RAG, full output to file (local CLI):
 ```
-PYTHONPATH=. uv run python scripts/debug_pipeline.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/hzlmk7msk3dn" --file "/Users/travisblount-elliott/library 2/downloads/00b8b581c63f44389c7ef5fe55b6638c/36C24226Q0439.docx" --no-rag
+PYTHONPATH=. uv run python scripts/debug_pipeline.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/z0jhktvggxpp" --file "/Users/travisblount-elliott/library 2/downloads/00b8b581c63f44389c7ef5fe55b6638c/36C24226Q0439.docx" --no-rag --output .development-notes/debug_output.txt
 ```

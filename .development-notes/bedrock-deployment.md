@@ -57,11 +57,11 @@ tokenizer_config.json, chat_template.jinja.
 
 - Model name: `f4-llama-3b-flag-detector`
 - S3 path: `s3://trbe-f4-finetuned-model/`
-- Import Job Name: `importJob-20260311T220627`
-- Service Role Name: `executionRoleName-20260311T220627` (auto-created with S3 read access)
+- Import Job Name: `importJob-20260313T170358`
+- Service Role Name: `executionRoleName-20260313T170358` (auto-created with S3 read access)
 - Region: us-east-1
 
-Model ARN: `arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/hzlmk7msk3dn`
+Model ARN: `arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp`
 Status: complete
 
 ## 4. Verify Endpoint Inference
@@ -69,7 +69,7 @@ Status: complete
 **Run on: local CLI** (Alt account, needs boto3 via uv)
 
 ```bash
-uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/hzlmk7msk3dn"
+uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp"
 ```
 
 Results: 4/5 passed. waterfall, no_flag, COTS, small_business all correct. Agile test returned
@@ -96,6 +96,66 @@ per chunk doesn't matter — the 64-token overlap exists to handle boundary impr
 Supersedes the tokenizer bundling approach attempted earlier (files downloaded to data/tokenizer/
 but not committed).
 
+## 6. config.json Debugging — rope_parameters vs rope_scaling
+
+### The Problem
+
+Model worked perfectly on SageMaker (tested at 1302 tokens, correct output) but degenerated into
+gibberish ("Water You You You", repeated tokens, hallucinated text) on Bedrock for any prompt
+longer than ~875 tokens. Short prompts (~221 tokens) worked fine.
+
+Binary search (`scripts/bedrock_token_limit.py`) confirmed a hard cutoff:
+- 862 tokens: PASS
+- 865 tokens: FAIL
+
+### Investigation
+
+1. Confirmed merged model works on SageMaker at 1302 tokens — merge is not the issue
+2. Confirmed RAG store content matches between training and inference — RAG is not the issue
+3. Tested `messages` format (OpenAIChatCompletion) — same limit (~876 tokens)
+4. Reduced `max_position_embeddings` from 131072 to 4096 — no improvement (~815 tokens)
+5. Checked HW7's 1B model config — same `max_position_embeddings: 131072`, but 1B model has
+   smaller KV-cache per token so the limit was never hit with short HW7 test prompts
+
+### Root Cause
+
+The `config.json` exported by `merge_and_export.py` (using transformers 5.5.3) used the field
+name `rope_parameters`. Bedrock's inference container (documented as supporting transformers 4.51.3)
+expects the older field name `rope_scaling`.
+
+Because Bedrock couldn't read `rope_parameters`, it had no RoPE scaling configuration. Without
+proper RoPE, the model's position encoding was wrong for all positions, but the error was tolerable
+at short sequences and caused complete degeneration beyond ~875 tokens.
+
+Additionally, the transformers version field (`"transformers_version": "5.5.3"`) may have caused
+the inference container to misparse other config fields.
+
+### Fix
+
+Downloaded `config.json` from S3 and applied three changes:
+1. Renamed `rope_parameters` → `rope_scaling`
+2. Set `rope_scaling.factor` to `8.0` (matching Bedrock's documented override for Llama 3)
+3. Moved `rope_theta: 500000.0` to top level (4.x format)
+4. Changed `transformers_version` from `5.5.3` to `4.51.3`
+5. Restored `max_position_embeddings` to `131072` (original value)
+
+Re-uploaded config.json to S3, deleted old Bedrock model, re-imported.
+
+### Result
+
+After fix, binary search found NO failure up to 5000+ padding words (3457+ tokens). The model
+now handles long prompts correctly on Bedrock.
+
+### Lesson
+
+**When exporting models for Bedrock Custom Model Import, the config.json must use field names
+compatible with transformers 4.51.3, not newer versions.** The merge/export script runs with
+whatever transformers is installed locally, which may be newer than what Bedrock supports. Key
+field name change: `rope_parameters` (5.x) → `rope_scaling` (4.x).
+
+This should be automated in `training/merge_and_export.py` alongside the existing `tokenizer_class`
+fix.
+
 ## Notes
 
 - HW7 reference bucket: `llm-class-hw7-model-trbe` (Llama 3.2 1B, still exists on Alt account)
@@ -105,3 +165,5 @@ but not committed).
   console click-ops and manual bucket policy. Creating bucket from local CLI avoids this.
 - Bedrock `invoke_model` API: `{"prompt": formatted, "max_gen_len": N, "temperature": T, "top_p": P}`
   → response: `{"generation": "..."}`
+- Bedrock also supports `messages` format (OpenAIChatCompletion): `{"messages": [...], "max_tokens": N}`
+  → response: OpenAI-compatible JSON with `choices[0].message.content`
