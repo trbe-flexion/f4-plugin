@@ -19,7 +19,7 @@ from pathlib import Path
 
 import anthropic
 
-MODEL = "us.anthropic.claude-opus-4-0-20250514"
+MODEL = "us.anthropic.claude-opus-4-6-v1"
 MAX_CONCURRENCY = 5
 DEFAULT_BATCH_SIZE = 10
 

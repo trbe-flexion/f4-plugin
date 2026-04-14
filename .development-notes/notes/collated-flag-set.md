@@ -85,14 +85,11 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
 
   Flags with explicit, formulaic language that a fine-tuned small model can reliably detect from a partial chunk:
 
-  - waterfall_methodology
   - off_the_shelf_software
-  - no_custom_development
   - lpta_source_selection
   - small_business_set_aside
   - 8a_set_aside
-  - wosb_set_aside
-  - edwosb_set_aside
+  - wosb_set_aside (includes edwosb — merged for training; distinction too narrow for chunk-level detection)
   - sdvosb_set_aside
   - hubzone_set_aside
   - agile_methodology
@@ -101,7 +98,6 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   - budget_too_low
   - brownfield
   - onsite_required
-  - onsite_madison
   - large_team
   - marginal_short_duration
   - no_flag (special: output when no flags are detected in a chunk; filtered out by harness, not a real flag)
@@ -119,3 +115,9 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   - marginal_small_team — FTE count in a chunk is typically a subteam, not full scope.
   - marginal_uncertain_funding — Appropriations boilerplate appears in nearly every federal contract; high false-pop risk.
   - marginal_investment — Derived flag; computed by harness from sub-criteria, not model-detected.
+  - no_custom_development — Requires document-level context; "no custom dev" is rarely stated explicitly in a single chunk.
+  Sonnet mislabeled product purchases as this flag in ~92% of cases.
+  - waterfall_methodology — 0 validated examples from 958 RFPs. Genuinely rare in the corpus; downstream LLM will catch it.
+  - onsite_madison — When onsite_required fires, opp-capture can string-match for "Madison, WI" to negate it.
+  Not implemented in f4-plugin; documented here for the integration layer.
+  - edwosb_set_aside — Merged into wosb_set_aside for training.

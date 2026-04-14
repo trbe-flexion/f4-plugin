@@ -151,7 +151,17 @@ Opp-capture integration:
 
 ## TEMP: Copy-paste commands (delete when done)
 
-Resume label_real_data.py (after crash at RFP 457):
+Validation test run (1 chunk, separate output):
 ```
-PYTHONPATH=. uv run python scripts/label_real_data.py --source-dir "/Users/travisblount-elliott/library 2/downloads/" --target-per-flag 150 --resume
+PYTHONPATH=. uv run python scripts/validate_labels.py --limit 1 --output data/validated_test.jsonl
+```
+
+Full validation run:
+```
+PYTHONPATH=. uv run python scripts/validate_labels.py
+```
+
+Resume validation (after interrupt):
+```
+PYTHONPATH=. uv run python scripts/validate_labels.py --resume
 ```
