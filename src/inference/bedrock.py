@@ -10,7 +10,7 @@ import json
 
 import boto3
 
-# Must match the system prompt used during training (see .development-notes/system-prompt.md)
+# Must match the system prompt used during training (see scripts/system-prompt.md)
 SYSTEM_PROMPT = """\
 You are a flag detection model for government RFP screening. \
 Your job is to identify which flags, if any, are present in the provided RFP text chunk.

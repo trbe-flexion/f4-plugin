@@ -35,7 +35,7 @@ f4.filter(text)
 | Green | agile_methodology, oral_presentation, design_exercise | Positive signal |
 | Blue | large_team, 8a/wosb/edwosb/sdvosb/hubzone_set_aside, onsite_madison | Informational |
 
-Full definitions in [collated-flag-set.md](.development-notes/collated-flag-set.md).
+Full definitions in [collated-flag-set.md](.development-notes/notes/collated-flag-set.md).
 
 ## Project Structure
 

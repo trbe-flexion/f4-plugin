@@ -31,6 +31,13 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
   - Wrap with real ChromaDB RAG context (same as `scripts/rewrap_rag_context.py`)
   - Output as training-format JSONL
   - Start with a sample (200-500 RFPs) to keep API costs reasonable
+- [ ] Validation pass: Opus reviews all Sonnet-labeled chunks in labeled_real.jsonl to cull mislabeled/poor examples
+  - Use Claude Opus via Bedrock (stronger model auditing weaker model's work)
+  - Optimize for speed: concurrent API calls (asyncio/thread pool), batch multiple chunks per prompt
+  - ~13% error rate from spot check — focus on error-prone flags (no_custom_development, large_team, marginal_short_duration, waterfall_methodology, brownfield)
+  - Run after labeling script completes
+- [ ] Supplement rare flags with seeded synthetic examples (waterfall, edwosb, budget_too_low, etc.)
+- [ ] Consider: detect `onsite_madison` via string match post-filter on `onsite_required` instead of model detection
 - [ ] Retrain on mixed synthetic + real data
 - [ ] Source manually labeled test set from Tom Willis for ground-truth evaluation
 
@@ -46,13 +53,13 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [x] Set up training environment (SageMaker ml.g6.xlarge)
 - [x] Fine-tune on synthetic training set (3 epochs, eval loss 0.53, token accuracy 86.5%)
 - [x] Evaluation script (`training/evaluate.py`) — flag precision, chunk recall, format compliance, per-flag breakdown
-- [x] Run evaluation on test set (F1: 94.1%, precision: 97.3%, recall: 91.1%, compliance: 100%). Results in `.development-notes/evaluation_results.md`.
+- [x] Run evaluation on test set (F1: 94.1%, precision: 97.3%, recall: 91.1%, compliance: 100%). Results in `.development-notes/notes/evaluation_results.md`.
 - [x] Merge LoRA adapters back into base model
 - [x] Export as HF safetensors (uploaded to s3://trbe-f4-finetuned-model/)
 
 **Decision:** Proceeding with current fine-tuned model as-is. Results are strong enough to build the full library against. Further tuning (TextGrad prompt optimization, additional training data, onsite_required/brownfield recall gaps) is plug-and-play — swap in improved models later without changing library code.
 
-### 8b. Retrain with Realistic RAG *(plan: `.development-notes/retrain-plan.md`)*
+### 8b. Retrain with Realistic RAG *(plan: `.development-notes/plans/retrain-plan.md`)*
 - [x] Rewrap training data with real ChromaDB retrieval (`scripts/rewrap_rag_context.py`)
 - [x] Retrain on SageMaker (v2: eval loss 0.514, token accuracy 87.0%)
 - [x] Re-evaluate (v2: F1 83.0%, precision 91.6%, recall 75.9%, compliance 97.5%)
@@ -144,7 +151,7 @@ Opp-capture integration:
 
 ## TEMP: Copy-paste commands (delete when done)
 
-Debug pipeline, no RAG, full output to file (local CLI):
+Resume label_real_data.py (after crash at RFP 457):
 ```
-PYTHONPATH=. uv run python scripts/debug_pipeline.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/z0jhktvggxpp" --file "/Users/travisblount-elliott/library 2/downloads/00b8b581c63f44389c7ef5fe55b6638c/36C24226Q0439.docx" --no-rag --output .development-notes/debug_output.txt
+PYTHONPATH=. uv run python scripts/label_real_data.py --source-dir "/Users/travisblount-elliott/library 2/downloads/" --target-per-flag 150 --resume
 ```

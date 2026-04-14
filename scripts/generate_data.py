@@ -26,7 +26,7 @@ import anthropic
 
 REPO_ROOT = Path(__file__).parent.parent
 DATA_DIR = REPO_ROOT / "data"
-SYSTEM_PROMPT_PATH = REPO_ROOT / ".development-notes" / "system-prompt.md"
+SYSTEM_PROMPT_PATH = REPO_ROOT / "scripts" / "system-prompt.md"
 
 MODEL = "us.anthropic.claude-sonnet-4-6"
 EXAMPLES_PER_FLAG = 100  # positive + adversarial per flag
