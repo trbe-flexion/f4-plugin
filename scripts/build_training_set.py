@@ -33,7 +33,7 @@ SYSTEM_PROMPT_PATH = REPO_ROOT / "scripts" / "system-prompt.md"
 TOP_K = 3
 RAG_PER_FLAG = 2
 FLAG_CAP: dict[str, int] = {
-    "off_the_shelf_software": 150,
+    "off_the_shelf_software": 75,
 }
 
 
@@ -177,40 +177,32 @@ def cap_flags(records: list[dict], caps: dict[str, int]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Stratified split by rfp_id
+# Stratified record-level split
 # ---------------------------------------------------------------------------
 
 
-def split_by_rfp_id(
+def stratified_split(
     records: list[dict],
     train_pct: int,
     eval_pct: int,
     test_pct: int,
 ) -> tuple[list[dict], list[dict], list[dict]]:
-    """Stratified split by rfp_id: place rare-flag RFPs first to ensure
-    proportional flag coverage, then fill remaining RFPs by count."""
+    """Stratified split at the record level. Assigns rare-flag records first
+    to ensure proportional coverage, then fills remaining records."""
 
-    # Group records by rfp_id
-    by_rfp: dict[str, list[dict]] = defaultdict(list)
-    for rec in records:
-        by_rfp[rec["rfp_id"]].append(rec)
-
-    # For each rfp_id, collect its flags
-    rfp_flags: dict[str, set[str]] = {}
-    for rfp_id, recs in by_rfp.items():
-        flags: set[str] = set()
-        for r in recs:
-            flags.update(r.get("flags", []))
-        rfp_flags[rfp_id] = flags
-
-    # Count total per flag to determine rarity order
+    # Determine each record's rarest flag (for sorting priority)
     flag_totals: Counter = Counter()
-    for flags in rfp_flags.values():
-        flag_totals.update(flags)
+    for rec in records:
+        flag_totals.update(rec.get("flags", []))
 
-    # Sort flags rarest-first
-    flags_by_rarity = [f for f, _ in flag_totals.most_common()]
-    flags_by_rarity.reverse()
+    def rarest_flag_count(rec: dict) -> int:
+        flags = rec.get("flags", [])
+        if not flags:
+            return 999999  # negatives go last
+        return min(flag_totals[f] for f in flags)
+
+    # Sort records by rarest flag (rarest first)
+    sorted_records = sorted(records, key=rarest_flag_count)
 
     # Target counts per split
     total = len(records)
@@ -220,57 +212,52 @@ def split_by_rfp_id(
         "test": total - int(total * train_pct / 100) - int(total * eval_pct / 100),
     }
 
-    assigned: dict[str, str] = {}  # rfp_id -> split name
-    split_counts = {"train": 0, "eval": 0, "test": 0}
+    # Track per-flag counts in each split to distribute evenly
+    split_flag_counts: dict[str, Counter] = {
+        "train": Counter(),
+        "eval": Counter(),
+        "test": Counter(),
+    }
+    split_records: dict[str, list[dict]] = {
+        "train": [],
+        "eval": [],
+        "test": [],
+    }
 
-    # Phase 1: For each flag (rarest first), distribute its unassigned rfp_ids
-    for flag in flags_by_rarity:
-        # Collect unassigned rfp_ids that have this flag
-        unassigned = [
-            rid for rid, flags in rfp_flags.items() if flag in flags and rid not in assigned
-        ]
-        random.shuffle(unassigned)
+    for rec in sorted_records:
+        flags = rec.get("flags", [])
 
-        if not unassigned:
-            continue
+        if not flags:
+            # Negative: assign to split furthest below target
+            deficits = {s: targets[s] - len(split_records[s]) for s in targets}
+            best = max(deficits, key=deficits.get)  # type: ignore[arg-type]
+        else:
+            # Flagged: assign to split where this record's flags are
+            # most underrepresented relative to target ratios
+            best = None
+            best_score = float("inf")
+            for split_name in ["train", "eval", "test"]:
+                if len(split_records[split_name]) >= targets[split_name]:
+                    continue
+                # Score = max fill ratio across this record's flags
+                score = max(
+                    split_flag_counts[split_name][f]
+                    / max(flag_totals[f] * targets[split_name] / total, 1)
+                    for f in flags
+                )
+                if score < best_score:
+                    best_score = score
+                    best = split_name
+            if best is None:
+                # All splits at target — put in the one furthest below
+                deficits = {s: targets[s] - len(split_records[s]) for s in targets}
+                best = max(deficits, key=deficits.get)  # type: ignore[arg-type]
 
-        # Distribute proportionally across splits
-        n = len(unassigned)
-        n_train = max(1, round(n * train_pct / 100))
-        n_eval = max(1, round(n * eval_pct / 100))
-        # Ensure we don't exceed total
-        n_eval = min(n_eval, n - n_train)
-        for rid in unassigned[:n_train]:
-            assigned[rid] = "train"
-            split_counts["train"] += len(by_rfp[rid])
-        for rid in unassigned[n_train : n_train + n_eval]:
-            assigned[rid] = "eval"
-            split_counts["eval"] += len(by_rfp[rid])
-        for rid in unassigned[n_train + n_eval :]:
-            assigned[rid] = "test"
-            split_counts["test"] += len(by_rfp[rid])
+        split_records[best].append(rec)
+        for f in flags:
+            split_flag_counts[best][f] += 1
 
-    # Phase 2: Assign remaining rfp_ids (no-flag or already-covered flags)
-    unassigned_rest = [rid for rid in by_rfp if rid not in assigned]
-    random.shuffle(unassigned_rest)
-
-    for rid in unassigned_rest:
-        # Assign to the split furthest below its target
-        deficits = {s: targets[s] - split_counts[s] for s in targets}
-        best = max(deficits, key=deficits.get)  # type: ignore[arg-type]
-        assigned[rid] = best
-        split_counts[best] += len(by_rfp[rid])
-
-    # Build output lists
-    train_recs: list[dict] = []
-    eval_recs: list[dict] = []
-    test_recs: list[dict] = []
-    split_map = {"train": train_recs, "eval": eval_recs, "test": test_recs}
-
-    for rfp_id, split_name in assigned.items():
-        split_map[split_name].extend(by_rfp[rfp_id])
-
-    return train_recs, eval_recs, test_recs
+    return split_records["train"], split_records["eval"], split_records["test"]
 
 
 # ---------------------------------------------------------------------------
@@ -371,11 +358,9 @@ def main() -> None:
     print("\n=== Step 3: Cap negatives ===")
     remaining = cap_negatives(remaining, ratio=args.negative_ratio)
 
-    # Step 4: Stratified split by rfp_id
-    print("\n=== Step 4: Stratified split by rfp_id ===")
-    train, eval_set, test = split_by_rfp_id(remaining, train_pct, eval_pct, test_pct)
-    unique_rfps = len({r["rfp_id"] for r in remaining})
-    print(f"  {unique_rfps} unique rfp_ids")
+    # Step 4: Stratified record-level split
+    print("\n=== Step 4: Stratified split (record-level) ===")
+    train, eval_set, test = stratified_split(remaining, train_pct, eval_pct, test_pct)
     print(f"  Train: {len(train)} | Eval: {len(eval_set)} | Test: {len(test)}")
 
     # Per-flag breakdown per split

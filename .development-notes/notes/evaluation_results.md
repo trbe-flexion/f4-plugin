@@ -1,4 +1,93 @@
-# F4 Evaluation Results 4/10
+# F4 Evaluation Results
+
+## Run 3: Real data, no RAG (4/14)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 3 epochs, 1034 training examples, max_seq_length 2048
+Test set: 130 real RFP chunks (stratified by rfp_id)
+Training config: No RAG context, OTSS capped at 150, negatives at 0.25 ratio
+System prompt: "weak signals" caveat removed
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 130 |
+| Format compliance | 99.2% |
+| Precision | 52.0% |
+| Recall | 45.5% |
+| F1 | 48.6% |
+| Predicted flags | 98 |
+| Ground truth flags | 112 |
+| Correct | 51 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 75.0% | 3 | 0 | 1 |
+| agile_methodology | 90.9% | 66.7% | 10 | 1 | 5 |
+| brownfield | 0.0% | 0.0% | 0 | 0 | 10 |
+| budget_too_low | 0.0% | 0.0% | 0 | 1 | 4 |
+| design_exercise | 0.0% | 0.0% | 0 | 0 | 4 |
+| hubzone_set_aside | 66.7% | 100.0% | 2 | 1 | 0 |
+| large_team | 0.0% | 0.0% | 0 | 0 | 3 |
+| lpta_source_selection | 40.0% | 33.3% | 2 | 3 | 4 |
+| marginal_short_duration | 50.0% | 18.2% | 2 | 2 | 9 |
+| off_the_shelf_software | 17.1% | 37.5% | 6 | 29 | 10 |
+| onsite_required | 66.7% | 60.0% | 6 | 3 | 4 |
+| oral_presentation | 87.5% | 87.5% | 7 | 1 | 1 |
+| sdvosb_set_aside | 57.1% | 100.0% | 4 | 3 | 0 |
+| small_business_set_aside | 87.5% | 53.8% | 7 | 1 | 6 |
+| wosb_set_aside | 50.0% | 100.0% | 2 | 2 | 0 |
+
+**Notes:** Recall improved dramatically vs Run 2 (25.5% → 45.5%) after cutting negatives
+to 0.25 ratio. OTSS over-predicts (29 FP). Four flags still at zero recall (brownfield,
+budget_too_low, design_exercise, large_team). Next: cut OTSS to 75, try 5 epochs.
+
+---
+
+## Run 2: Real data, with RAG (4/14)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 3 epochs, 1536 training examples, max_seq_length 2048
+Test set: 191 real RFP chunks (stratified by rfp_id)
+Training config: 30 real RAG seeds, OTSS capped at 100, negatives at 1:1 ratio
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 191 |
+| Format compliance | 99.5% |
+| Precision | 86.2% |
+| Recall | 25.5% |
+| F1 | 39.4% |
+| Predicted flags | 29 |
+| Ground truth flags | 98 |
+| Correct | 25 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 33.3% | 1 | 0 | 2 |
+| agile_methodology | 100.0% | 25.0% | 3 | 0 | 9 |
+| brownfield | 0.0% | 0.0% | 0 | 0 | 4 |
+| budget_too_low | 0.0% | 0.0% | 0 | 0 | 5 |
+| design_exercise | 0.0% | 0.0% | 0 | 0 | 5 |
+| hubzone_set_aside | 100.0% | 100.0% | 2 | 0 | 0 |
+| large_team | 0.0% | 0.0% | 0 | 0 | 4 |
+| lpta_source_selection | 100.0% | 16.7% | 1 | 0 | 5 |
+| marginal_short_duration | 0.0% | 0.0% | 0 | 0 | 8 |
+| off_the_shelf_software | 0.0% | 0.0% | 0 | 0 | 9 |
+| onsite_required | 0.0% | 0.0% | 0 | 0 | 6 |
+| oral_presentation | 81.8% | 90.0% | 9 | 2 | 1 |
+| sdvosb_set_aside | 100.0% | 66.7% | 2 | 0 | 1 |
+| small_business_set_aside | 87.5% | 38.9% | 7 | 1 | 11 |
+| wosb_set_aside | 0.0% | 0.0% | 0 | 1 | 3 |
+
+**Notes:** High precision but very low recall — model defaulted to no_flag too often.
+Negatives at 1:1 ratio overwhelmed flag signal. RAG context (30 seeds) likely too sparse
+to help.
+
+---
+
+## Run 1: Synthetic data (4/10)
 
 Model: meta-llama/Llama-3.2-3B-Instruct
 Fine-tuning: LoRA, 3 epochs, 1670 training examples, max_seq_length 2048
