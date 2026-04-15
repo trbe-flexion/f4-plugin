@@ -19,6 +19,30 @@ MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"
 EXPECTED_TOKENIZER_CLASS = "LlamaTokenizerFast"
 
 
+def fix_rope_config(output_dir: str) -> bool:
+    """Rename rope_parameters to rope_scaling in config.json for Bedrock compatibility.
+
+    Returns True if a fix was applied, False if already correct or file missing.
+    """
+    config_path = Path(output_dir) / "config.json"
+    if not config_path.exists():
+        return False
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    if "rope_parameters" not in config:
+        return False
+
+    config["rope_scaling"] = config.pop("rope_parameters")
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    print("Fixed config.json: rope_parameters -> rope_scaling")
+    return True
+
+
 def fix_tokenizer_class(output_dir: str) -> bool:
     """Fix tokenizer_class in tokenizer_config.json for Bedrock compatibility.
 
@@ -102,6 +126,7 @@ def main(args: list[str] | None = None) -> None:
     tokenizer.save_pretrained(str(output_path))
 
     fix_tokenizer_class(str(output_path))
+    fix_rope_config(str(output_path))
 
     print("Done. Output ready for Bedrock Custom Model Import.")
 

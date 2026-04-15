@@ -25,20 +25,22 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 
 ## 6. Real RFP Training & Test Data
 - [x] Hold-out subset of synthetic data for test set
-- [ ] Label real RFP data with Claude distillation (~958 RFPs available in `library 2/downloads/`, 2.1GB, mostly PDF/DOCX)
+- [x] Label real RFP data with Claude distillation (`data/sonnet_labeled_real.jsonl`, ~4040 chunks from 958 RFPs)
   - Extract text from real RFP files
   - Chunk and send to Claude (Sonnet via Bedrock) for flag labeling
-  - Wrap with real ChromaDB RAG context (same as `scripts/rewrap_rag_context.py`)
-  - Output as training-format JSONL
-  - Start with a sample (200-500 RFPs) to keep API costs reasonable
-- [ ] Validation pass: Opus reviews all Sonnet-labeled chunks in labeled_real.jsonl to cull mislabeled/poor examples
-  - Use Claude Opus via Bedrock (stronger model auditing weaker model's work)
-  - Optimize for speed: concurrent API calls (asyncio/thread pool), batch multiple chunks per prompt
-  - ~13% error rate from spot check — focus on error-prone flags (no_custom_development, large_team, marginal_short_duration, waterfall_methodology, brownfield)
-  - Run after labeling script completes
-- [ ] Supplement rare flags with seeded synthetic examples (waterfall, edwosb, budget_too_low, etc.)
-- [ ] Consider: detect `onsite_madison` via string match post-filter on `onsite_required` instead of model detection
-- [ ] Retrain on mixed synthetic + real data
+  - Output as labeled JSONL
+- [x] Validation pass: Opus reviews all Sonnet-labeled chunks (`data/opus_validated_real.jsonl`)
+  - 3779 usable, 261 dropped (mislabeled, ambiguous, or substantive flag concerns)
+  - ~13% error rate confirmed — Opus fixed or dropped problematic examples
+- [x] Supplement rare flags with Opus-generated synthetic examples (`scripts/supplement_rare_flags.py`)
+  - hubzone (15→30), wosb (17→34), budget_too_low (23→46), 8a (24→48)
+  - Seeded with random real examples per flag for tone/style matching
+- [x] Decide: detect `onsite_madison` via string match post-filter on `onsite_required` (not model)
+- [x] Build train/eval/test splits + RAG seeds (`scripts/build_training_set.py`)
+  - 2 RAG seeds per flag reserved (30 total, excluded from splits)
+  - off_the_shelf_software capped at 100; negatives capped 1:1 with positives
+  - Stratified split by rfp_id (80/10/10): train 1536 / eval 193 / test 191
+- [ ] Retrain on real data (`data/train.jsonl`, `data/eval.jsonl`)
 - [ ] Source manually labeled test set from Tom Willis for ground-truth evaluation
 
 ## 7. RAG Setup *(ChromaDB store + retriever built; populate script ready)*
@@ -96,16 +98,16 @@ Evaluation (SageMaker, after training — use PYTHONPATH=. for module resolution
   Results saved to evaluation/baseline.json and evaluation/finetuned.json
 
 Gradio demo (local, needs AWS creds for Alt account):
-  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp" --share --auth demo:demo
+  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc" --share --auth demo:demo
   Options: --no-rag (skip RAG), --max-workers N (concurrent Bedrock calls), --region REGION
   Note: first invocation after idle hits Bedrock cold start (~1-2 min)
 
 Bedrock smoke test (local, Alt account creds):
-  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp"
+  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc"
 
 Opp-capture integration:
   pip install git+ssh://git@github.com/trbe-flexion/f4-plugin.git
-  RAG store auto-populates from rag_seeds.jsonl on first init.
+  RAG store auto-populates from rag_exemplars.jsonl on first init.
 
 ---
 
@@ -151,17 +153,17 @@ Opp-capture integration:
 
 ## TEMP: Copy-paste commands (delete when done)
 
-Validation test run (1 chunk, separate output):
+Smoke test (local, new model):
 ```
-PYTHONPATH=. uv run python scripts/validate_labels.py --limit 1 --output data/validated_test.jsonl
-```
-
-Full validation run:
-```
-PYTHONPATH=. uv run python scripts/validate_labels.py
+uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/3ffr95d8c4cc"
 ```
 
-Resume validation (after interrupt):
+Evaluate on test set (SageMaker):
 ```
-PYTHONPATH=. uv run python scripts/validate_labels.py --resume
+PYTHONPATH=. uv run python training/evaluate.py
+```
+
+Gradio demo (local):
+```
+uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/3ffr95d8c4cc" --share --auth demo:demo
 ```

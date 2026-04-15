@@ -107,7 +107,7 @@ class FlagRAGStore:
     def get_or_init(
         cls,
         persist_directory: str = "data/chromadb",
-        seeds_path: str = "data/rag_seeds.jsonl",
+        seeds_path: str = "data/rag_exemplars.jsonl",
         **kwargs,
     ) -> FlagRAGStore:
         """Get a populated store, auto-populating from seeds if empty."""

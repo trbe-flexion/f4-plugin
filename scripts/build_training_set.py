@@ -421,7 +421,7 @@ def main() -> None:
 
     # Step 6: Write files
     print("\n=== Step 6: Write output ===")
-    write_jsonl(DATA_DIR / "rag_seeds_real.jsonl", rag_seeds)
+    write_jsonl(DATA_DIR / "rag_exemplars.jsonl", rag_seeds)
     write_jsonl(DATA_DIR / "train.jsonl", train_wrapped)
     write_jsonl(DATA_DIR / "eval.jsonl", eval_wrapped)
     write_jsonl(DATA_DIR / "test.jsonl", test_wrapped)

@@ -57,11 +57,11 @@ tokenizer_config.json, chat_template.jinja.
 
 - Model name: `f4-llama-3b-flag-detector`
 - S3 path: `s3://trbe-f4-finetuned-model/`
-- Import Job Name: `importJob-20260313T170358`
-- Service Role Name: `executionRoleName-20260313T170358` (auto-created with S3 read access)
+- Import Job Name: `importJob-20260314T194845`
+- Service Role Name: `executionRoleName-20260314T194845` (auto-created with S3 read access)
 - Region: us-east-1
 
-Model ARN: `arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp`
+Model ARN: `arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc`
 Status: complete
 
 ## 4. Verify Endpoint Inference
@@ -69,7 +69,7 @@ Status: complete
 **Run on: local CLI** (Alt account, needs boto3 via uv)
 
 ```bash
-uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/z0jhktvggxpp"
+uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc"
 ```
 
 Results: 4/5 passed. waterfall, no_flag, COTS, small_business all correct. Agile test returned
