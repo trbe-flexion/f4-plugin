@@ -33,7 +33,7 @@ SYSTEM_PROMPT_PATH = REPO_ROOT / "scripts" / "system-prompt.md"
 TOP_K = 3
 RAG_PER_FLAG = 2
 FLAG_CAP: dict[str, int] = {
-    "off_the_shelf_software": 100,
+    "off_the_shelf_software": 150,
 }
 
 
@@ -306,6 +306,11 @@ def main() -> None:
         help="Include synthetic seeds in ChromaDB (default: off)",
     )
     parser.add_argument(
+        "--no-rag",
+        action="store_true",
+        help="Skip RAG wrapping — system prompt + raw chunk only",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show plan without writing files",
@@ -344,13 +349,18 @@ def main() -> None:
     no_flag = sum(1 for r in usable if not r.get("flags"))
     print(f"  Flagged: {flagged} | No-flag: {no_flag}")
 
-    # Step 1: RAG seeds
-    print("\n=== Step 1: RAG seed selection ===")
-    rag_seeds, remaining = select_rag_seeds(usable, RAG_PER_FLAG)
-    seed_flags: Counter = Counter(s["flag"] for s in rag_seeds)
-    print(f"  Reserved {len(rag_seeds)} RAG seeds:")
-    for flag, count in sorted(seed_flags.items()):
-        print(f"    {flag}: {count}")
+    # Step 1: RAG seeds (skip if --no-rag)
+    rag_seeds: list[dict] = []
+    if args.no_rag:
+        print("\n=== Step 1: RAG seed selection (skipped, --no-rag) ===")
+        remaining = usable
+    else:
+        print("\n=== Step 1: RAG seed selection ===")
+        rag_seeds, remaining = select_rag_seeds(usable, RAG_PER_FLAG)
+        seed_flags: Counter = Counter(s["flag"] for s in rag_seeds)
+        print(f"  Reserved {len(rag_seeds)} RAG seeds:")
+        for flag, count in sorted(seed_flags.items()):
+            print(f"    {flag}: {count}")
     print(f"  Remaining: {len(remaining)}")
 
     # Step 2: Cap overrepresented flags
@@ -384,36 +394,43 @@ def main() -> None:
         print("\n(dry run — no files written)")
         return
 
-    # Step 5: Build ChromaDB and wrap with RAG context
-    print("\n=== Step 5: Build ChromaDB + wrap context ===")
+    # Step 5: Build training records
     system_prompt = SYSTEM_PROMPT_PATH.read_text().strip()
 
-    store = FlagRAGStore()
+    if args.no_rag:
+        print("\n=== Step 5: Build records (no RAG) ===")
 
-    # Add synthetic seeds
-    synthetic_path = DATA_DIR / "synthetic" / "rag_seeds.jsonl"
-    if args.include_synthetic_seeds and synthetic_path.exists():
-        synthetic_seeds = load_jsonl(synthetic_path)
-        added = store.add_passages(synthetic_seeds)
-        print(f"  Added {added} synthetic seeds")
+        def wrap_split(split_records: list[dict]) -> list[dict]:
+            return [
+                make_training_record(system_prompt, rec["chunk_text"], rec.get("flags", []), [])
+                for rec in split_records
+            ]
+    else:
+        print("\n=== Step 5: Build ChromaDB + wrap context ===")
+        store = FlagRAGStore()
 
-    # Add real seeds — prefix flag names to avoid ID collision with synthetic
-    real_seeds_for_store = [
-        {"flag": f"real_{s['flag']}", "passage": s["passage"]} for s in rag_seeds
-    ]
-    added = store.add_passages(real_seeds_for_store)
-    print(f"  Added {added} real seeds")
-    print(f"  Total in ChromaDB: {store.count()}")
+        synthetic_path = DATA_DIR / "synthetic" / "rag_seeds.jsonl"
+        if args.include_synthetic_seeds and synthetic_path.exists():
+            synthetic_seeds = load_jsonl(synthetic_path)
+            added = store.add_passages(synthetic_seeds)
+            print(f"  Added {added} synthetic seeds")
 
-    def wrap_split(split_records: list[dict]) -> list[dict]:
-        wrapped = []
-        for rec in split_records:
-            chunk_text = rec["chunk_text"]
-            flags = rec.get("flags", [])
-            results = store.query(chunk_text, top_k=args.top_k + 1)
-            results = [r for r in results if r["passage"] != chunk_text][: args.top_k]
-            wrapped.append(make_training_record(system_prompt, chunk_text, flags, results))
-        return wrapped
+        real_seeds_for_store = [
+            {"flag": f"real_{s['flag']}", "passage": s["passage"]} for s in rag_seeds
+        ]
+        added = store.add_passages(real_seeds_for_store)
+        print(f"  Added {added} real seeds")
+        print(f"  Total in ChromaDB: {store.count()}")
+
+        def wrap_split(split_records: list[dict]) -> list[dict]:
+            wrapped = []
+            for rec in split_records:
+                chunk_text = rec["chunk_text"]
+                flags = rec.get("flags", [])
+                results = store.query(chunk_text, top_k=args.top_k + 1)
+                results = [r for r in results if r["passage"] != chunk_text][: args.top_k]
+                wrapped.append(make_training_record(system_prompt, chunk_text, flags, results))
+            return wrapped
 
     train_wrapped = wrap_split(train)
     eval_wrapped = wrap_split(eval_set)
@@ -421,7 +438,8 @@ def main() -> None:
 
     # Step 6: Write files
     print("\n=== Step 6: Write output ===")
-    write_jsonl(DATA_DIR / "rag_exemplars.jsonl", rag_seeds)
+    if rag_seeds:
+        write_jsonl(DATA_DIR / "rag_exemplars.jsonl", rag_seeds)
     write_jsonl(DATA_DIR / "train.jsonl", train_wrapped)
     write_jsonl(DATA_DIR / "eval.jsonl", eval_wrapped)
     write_jsonl(DATA_DIR / "test.jsonl", test_wrapped)
