@@ -1,6 +1,64 @@
 # F4 Evaluation Results
 
+## Run 4: Record-level split, 5 epochs, OTSS cap 75 (4/14)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 5 epochs, record-level stratified split, max_seq_length 2048
+Test set: 130 real RFP chunks
+Training config: No RAG context, OTSS capped at 75, negatives at 0.25 ratio
+System prompt: "weak signals" caveat removed
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 130 |
+| Format compliance | 99.2% |
+| Precision | 60.8% |
+| Recall | 55.4% |
+| F1 | 57.9% |
+| Predicted flags | 102 |
+| Ground truth flags | 112 |
+| Correct | 62 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 75.0% | 3 | 0 | 1 |
+| agile_methodology | 91.7% | 73.3% | 11 | 1 | 4 |
+| brownfield | 0.0% | 0.0% | 0 | 0 | 10 |
+| budget_too_low | 0.0% | 0.0% | 0 | 1 | 4 |
+| design_exercise | 0.0% | 0.0% | 0 | 1 | 4 |
+| hubzone_set_aside | 66.7% | 100.0% | 2 | 1 | 0 |
+| large_team | 0.0% | 0.0% | 0 | 0 | 3 |
+| lpta_source_selection | 60.0% | 50.0% | 3 | 2 | 3 |
+| marginal_short_duration | 80.0% | 36.4% | 4 | 1 | 7 |
+| off_the_shelf_software | 22.9% | 50.0% | 8 | 27 | 8 |
+| onsite_required | 70.0% | 70.0% | 7 | 3 | 3 |
+| oral_presentation | 87.5% | 87.5% | 7 | 1 | 1 |
+| sdvosb_set_aside | 80.0% | 100.0% | 4 | 1 | 0 |
+| small_business_set_aside | 91.7% | 84.6% | 11 | 1 | 2 |
+| wosb_set_aside | 100.0% | 100.0% | 2 | 0 | 0 |
+
+**Changes from Run 3:** OTSS cap reduced 150→75, record-level stratified split (was rfp_id),
+5 epochs (was 3).
+
+**Results vs Run 3:** F1 improved 48.6%→57.9% (+9.3). Precision 52.0%→60.8%, recall
+45.5%→55.4%. Broad improvements across most flags. OTSS FP down slightly (29→27) but
+still the main precision drag. Four flags remain at zero recall: brownfield, budget_too_low,
+design_exercise, large_team — extra epochs and data changes had no effect on these.
+
+---
+
 ## Run 3: Real data, no RAG (4/14)
+
+There were additional runs between 2 and 3 using a RAG.
+Compliance remains high through all runs (98%+)
+Precision was high when using a RAG.
+Recall, however, was low (25%). I reduced negative examples (no_flag) and removed prompt language instructing the model to ignore weak signals.
+This run is the result of that adjustment: Much weaker precision driven significantly by OTSS false positives, moderately better Recall, and slightly better F1.
+Result of this run: reduce OTSS examples; switch from splitting by RFP to a record-level stratified split. This may be worse for leakage, but better for
+providing a wider selection of training examples for fine-tuning. I also decided to increase epochs to 5, as without RAG guidance the signal may be weaker.
+
+Another idea not yet pursued: go the other way entirely. Change the training set into a large RAG and briefly train the model for output compliance.
 
 Model: meta-llama/Llama-3.2-3B-Instruct
 Fine-tuning: LoRA, 3 epochs, 1034 training examples, max_seq_length 2048

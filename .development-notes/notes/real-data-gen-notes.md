@@ -97,6 +97,93 @@ as style/language seeds for Claude generation.
 
 ---
 
+## OTSS Implicit Example Cull (4/15)
+
+Removed `off_the_shelf_software` from 212 records in `opus_validated_real.jsonl` that lacked
+explicit COTS terminology. Kept 54 records with explicit language.
+
+**Problem:** OTSS had 27 FP in Run 4 eval. ~81% of training examples used implicit language
+(SaaS, cloud-based, configuration, vendor platform names) rather than explicit COTS terms.
+The model learned to associate any commercial software mention with the flag, producing FPs
+on chunks that mention software incidentally.
+
+**Decision:** OTSS is a wide-context flag similar to `onsite_madison` — determining whether
+a procurement is *for* off-the-shelf software often requires document-level understanding.
+Keep narrow, explicit detections in the model; handle the rest via string-match post-filter
+at inference time.
+
+**Kept terms** (case-insensitive):
+- COTS, GOTS, MCOTS (word-boundary matched)
+- commercial off-the-shelf (any hyphenation)
+- off-the-shelf software (any hyphenation)
+- NDI / nondevelopmental item
+- OOTB / out-of-the-box
+- FAR Part 12
+- shrink-wrapped
+
+**Result:** 266 OTSS records → 54 explicit kept, 212 implicit removed (flag stripped;
+records with other flags retained, records left with no flags set to `no_flag`).
+
+---
+
+## Zero-Recall Flag Investigation (4/15)
+
+Four flags showed 0% recall across Runs 3 and 4: brownfield, budget_too_low, design_exercise, large_team.
+Training counts were adequate (35-73 per flag) so this is a data quality problem, not volume.
+
+### brownfield — DROP
+
+- 100 non-dropped examples, but language is too diffuse for chunk-level detection
+- No single keyword appears in even half the examples: "maintain" (35%), "transition" (31%),
+  "moderniz" (24%) were the closest
+- Actual brownfield-specific terms ("existing code", "codebase", "take over") appear in <3%
+- 46% of examples were "fixed" by Opus — Sonnet's original labels needed substantial correction
+- The flag covers a broad concept ("there's already something here") that requires document-level
+  understanding, similar to onsite_madison
+- Decision: drop from model, handle at document level
+
+### budget_too_low — CLEAN + OVERSAMPLE
+
+- 46 non-dropped examples, but 23 (50%) are synthetic with uniform format that doesn't match
+  real RFP language. Drop all synthetic examples.
+- Of 23 real examples, ~6 contain no dollar amount at all — budget is inferred from scope
+  (training courses, bus cameras, 2-day seminars). These dilute the signal. Remove them.
+- Remaining ~17 real examples have a consistent, learnable signal: explicit dollar amount
+  + total/ceiling/NTE framing, under $100K.
+- Oversample using Claude generation seeded from the clean real examples:
+  - Rotate 2-3 seed examples per generation call (don't use all 17 at once)
+  - Tell Claude the target signal explicitly: "chunk contains an explicit total contract
+    value/ceiling/NTE under $100K"
+  - Vary surface features (agencies, contract types, formatting) while keeping core signal
+
+### design_exercise — NO ACTION, RE-EVALUATE
+
+- 54 non-dropped examples, 94% high confidence, 81% "keep" — cleanest data of the four.
+- Strong keyword signal: "demonstrat/demo" 76%, "challenge" 41%, "POC" 30%, "presentation" 50%.
+- 41 in train, 40 with clear keywords. Eval (6) and test (5) all have keywords too.
+- Data quality is not the problem. Similar-count flags (hubzone 34, wosb 42) work fine.
+- Hypothesis: improved after dropping brownfield/cleaning budget_too_low/large_team changes
+  the training distribution enough for this flag to start firing.
+- Re-evaluate after next training run. If still zero, consider oversampling then.
+
+### large_team — CLEAN + OVERSAMPLE
+
+- 54 non-dropped examples, but only 18 (33%) have clear chunk-level signal: explicit
+  headcount ≥10 (e.g. "13 FTEs", "104 contractor-personnel", "200 FTE") or 10+ enumerated
+  role listings.
+- Remaining 36 are noise: labor hours (488,994 hours), vague staffing plan language, team
+  descriptions without counts, concurrent user counts mistaken for team size.
+- Known labeling issue from gen notes: Claude fires on any large number, not just team size.
+- 31% medium confidence, 31% fixed by Opus — consistent with noisy labeling.
+- Clean to keep only examples with explicit personnel/FTE counts ≥10 or long role enumerations.
+- Oversample using Claude generation seeded from the ~18 clean real examples:
+  - Rotate 2-3 seeds per generation call
+  - Tell Claude the target signal: "chunk explicitly states or enumerates 10+ contractor
+    personnel/FTEs/roles required"
+  - Vary agencies, contract types, role names while keeping core signal
+
+---
+
 ## Other Observations
 
 - No-flag count overshot target (460/150 at 30%) because the prompt always asks for

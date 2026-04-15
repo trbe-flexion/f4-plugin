@@ -43,9 +43,6 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
 
   - small_business_set_aside — RFP is set aside exclusively for small businesses. Flexion does not qualify as a small
   business and would need to partner to bid, which significantly reduces attractiveness.
-  - brownfield — Contractor is taking over an existing codebase or continuing an ongoing project from a prior team. Not
-  inherently disqualifying but a significant risk signal. Look for: "existing system," "transition from incumbent,"
-  "continuing work," "legacy codebase."
   - lpta_source_selection — Source selection is Lowest Price Technically Acceptable. Flexion competes on value and
   expertise, not price. Look for: "LPTA," "lowest price technically acceptable."
   - feature_factory — RFP emphasizes feature delivery volume without discovery, user research, or iterative learning.
@@ -96,7 +93,6 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   - oral_presentation
   - design_exercise
   - budget_too_low
-  - brownfield
   - onsite_required
   - large_team
   - marginal_short_duration
@@ -120,4 +116,6 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   - waterfall_methodology — 0 validated examples from 958 RFPs. Genuinely rare in the corpus; downstream LLM will catch it.
   - onsite_madison — When onsite_required fires, opp-capture can string-match for "Madison, WI" to negate it.
   Not implemented in f4-plugin; documented here for the integration layer.
+  - brownfield — No consistent chunk-level signal. Language is too diffuse ("maintain," "transition," "modernize" each
+  appear in <35% of examples). Requires document-level understanding of whether contractor inherits existing code.
   - edwosb_set_aside — Merged into wosb_set_aside for training.

@@ -32,9 +32,7 @@ SYSTEM_PROMPT_PATH = REPO_ROOT / "scripts" / "system-prompt.md"
 
 TOP_K = 3
 RAG_PER_FLAG = 2
-FLAG_CAP: dict[str, int] = {
-    "off_the_shelf_software": 75,
-}
+FLAG_CAP: dict[str, int] = {}
 
 
 def load_jsonl(path: Path) -> list[dict]:
