@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Clean zero-recall flags from opus_validated_real.jsonl.
 
-Applies three cleaning operations:
+Applies four cleaning operations:
   1. Strip brownfield flag entirely (no chunk-level signal)
   2. Strip budget_too_low from synthetic records and real records without dollar amounts
   3. Strip large_team from records without explicit headcount >=10 or 10+ role enumerations
+  4. Strip onsite_required from records without explicit onsite keywords
 
 Records that lose all flags get an empty flags list (treated as no_flag by
 build_training_set.py). No records are deleted.
@@ -29,6 +30,17 @@ DATA_FILE = REPO_ROOT / "data" / "opus_validated_real.jsonl"
 # ---------------------------------------------------------------------------
 
 DOLLAR_RE = re.compile(r"\$\s*[\d,]+(?:\.\d+)?")
+
+ONSITE_TERMS = [
+    "onsite",
+    "on-site",
+    "on site",
+    "in-person",
+    "in person",
+    "physically present",
+    "physical presence",
+    "place of performance",
+]
 
 HEADCOUNT_RE = re.compile(
     r"(?:"
@@ -81,6 +93,11 @@ def has_large_team_signal(text: str) -> bool:
     return has_explicit_headcount(text) or has_enumerated_roles(text)
 
 
+def has_onsite_signal(text: str) -> bool:
+    text_lower = text.lower()
+    return any(term in text_lower for term in ONSITE_TERMS)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -101,6 +118,7 @@ def main() -> None:
     brownfield_stripped = 0
     budget_stripped = 0
     large_team_stripped = 0
+    onsite_stripped = 0
 
     for rec in records:
         flags = rec.get("flags", [])
@@ -122,11 +140,17 @@ def main() -> None:
             flags.remove("large_team")
             large_team_stripped += 1
 
+        # 4. Strip onsite_required: no explicit onsite keywords
+        if "onsite_required" in flags and not has_onsite_signal(rec["chunk_text"]):
+            flags.remove("onsite_required")
+            onsite_stripped += 1
+
         rec["flags"] = flags
 
     print(f"brownfield stripped: {brownfield_stripped}")
     print(f"budget_too_low stripped: {budget_stripped}")
     print(f"large_team stripped: {large_team_stripped}")
+    print(f"onsite_required stripped: {onsite_stripped}")
 
     # Count remaining
     from collections import Counter

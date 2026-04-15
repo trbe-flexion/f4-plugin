@@ -1,5 +1,74 @@
 # F4 Evaluation Results
 
+## Run 5: Data cleaning pass (4/15)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 5 epochs, record-level stratified split, max_seq_length 2048
+Test set: 132 real RFP chunks
+Training config: No RAG context, negatives at 0.25 ratio, brownfield dropped,
+budget_too_low + large_team cleaned and oversampled, OTSS implicit cull from Run 4
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 132 |
+| Format compliance | 100.0% |
+| Precision | 80.3% |
+| Recall | 53.0% |
+| F1 | 63.9% |
+| Predicted flags | 66 |
+| Ground truth flags | 100 |
+| Correct | 53 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 60.0% | 3 | 0 | 2 |
+| agile_methodology | 100.0% | 36.4% | 4 | 0 | 7 |
+| budget_too_low | 100.0% | 25.0% | 1 | 0 | 3 |
+| design_exercise | 0.0% | 0.0% | 0 | 0 | 6 |
+| hubzone_set_aside | 100.0% | 100.0% | 3 | 0 | 0 |
+| large_team | 0.0% | 0.0% | 0 | 0 | 4 |
+| lpta_source_selection | 100.0% | 75.0% | 6 | 0 | 2 |
+| marginal_short_duration | 0.0% | 0.0% | 0 | 0 | 10 |
+| off_the_shelf_software | 66.7% | 33.3% | 2 | 1 | 4 |
+| onsite_required | 52.9% | 90.0% | 9 | 8 | 1 |
+| oral_presentation | 100.0% | 84.6% | 11 | 0 | 2 |
+| sdvosb_set_aside | 100.0% | 50.0% | 2 | 0 | 2 |
+| small_business_set_aside | 100.0% | 66.7% | 8 | 0 | 4 |
+| wosb_set_aside | 50.0% | 100.0% | 4 | 4 | 0 |
+
+**Data per flag (at time of training):**
+
+| Flag | Tier | Total | Real | Synth | Prec | Rec |
+|------|------|------:|-----:|------:|-----:|----:|
+| onsite_required | Black | 95 | 95 | 0 | 53% | 90% |
+| off_the_shelf_software | Black | 53 | 53 | 0 | 67% | 33% |
+| budget_too_low | Black | 39 | 19 | 20 | 100% | 25% |
+| small_business_set_aside | Red | 137 | 137 | 0 | 100% | 67% |
+| marginal_short_duration | Red | 100 | 100 | 0 | 0% | 0% |
+| lpta_source_selection | Red | 98 | 98 | 0 | 100% | 75% |
+| 8a_set_aside | Blue | 48 | 24 | 24 | 100% | 60% |
+| large_team | Blue | 38 | 18 | 20 | 0% | 0% |
+| sdvosb_set_aside | Blue | 37 | 37 | 0 | 100% | 50% |
+| wosb_set_aside | Blue | 34 | 17 | 17 | 50% | 100% |
+| hubzone_set_aside | Blue | 30 | 15 | 15 | 100% | 100% |
+| oral_presentation | Green | 130 | 130 | 0 | 100% | 85% |
+| design_exercise | Green | 54 | 54 | 0 | 0% | 0% |
+| agile_methodology | Green | 123 | 123 | 0 | 100% | 36% |
+
+**Changes from Run 4:** Dropped brownfield entirely (no chunk-level signal). Cleaned
+budget_too_low (removed synthetic + no-dollar-amount examples, oversampled 20 from clean
+seeds). Cleaned large_team (removed examples without explicit headcount/roles, oversampled
+20 from clean seeds).
+
+**Results vs Run 4:** Precision improved 60.8%→80.3% (+19.5). F1 improved 57.9%→63.9%
+(+6.0). OTSS FP dropped 27→1. budget_too_low now firing (1 TP). However, recall dipped
+55.4%→53.0%. New regressions: agile_methodology (73%→36%), marginal_short_duration
+(36%→0%), onsite_required FP up (3→8). Model is more conservative overall (66 predicted
+vs 102). large_team and design_exercise still at zero recall.
+
+---
+
 ## Run 4: Record-level split, 5 epochs, OTSS cap 75 (4/14)
 
 Model: meta-llama/Llama-3.2-3B-Instruct
