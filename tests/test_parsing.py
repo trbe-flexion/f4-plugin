@@ -3,11 +3,11 @@ from src.domain.parsing import parse_flags
 
 class TestParseFlags:
     def test_single_flag(self):
-        assert parse_flags("waterfall_methodology") == ["waterfall_methodology"]
+        assert parse_flags("lpta_source_selection") == ["lpta_source_selection"]
 
     def test_multiple_flags(self):
-        raw = "off_the_shelf_software\nno_custom_development"
-        assert parse_flags(raw) == ["off_the_shelf_software", "no_custom_development"]
+        raw = "agile_methodology\noral_presentation"
+        assert parse_flags(raw) == ["agile_methodology", "oral_presentation"]
 
     def test_no_flag_returns_empty(self):
         assert parse_flags("no_flag") == []
@@ -19,29 +19,29 @@ class TestParseFlags:
         assert parse_flags("   \n  ") == []
 
     def test_strips_whitespace(self):
-        assert parse_flags("  brownfield  \n  lpta_source_selection  ") == [
-            "brownfield",
+        assert parse_flags("  small_business_set_aside  \n  lpta_source_selection  ") == [
+            "small_business_set_aside",
             "lpta_source_selection",
         ]
 
     def test_filters_unknown_flags(self):
-        raw = "waterfall_methodology\nmade_up_flag\nagile_methodology"
+        raw = "lpta_source_selection\nmade_up_flag\nagile_methodology"
         result = parse_flags(raw)
-        assert result == ["waterfall_methodology", "agile_methodology"]
+        assert result == ["lpta_source_selection", "agile_methodology"]
         assert "made_up_flag" not in result
 
     def test_mixed_valid_and_no_flag(self):
-        raw = "brownfield\nno_flag\nagile_methodology"
+        raw = "small_business_set_aside\nno_flag\nagile_methodology"
         result = parse_flags(raw)
-        assert result == ["brownfield", "agile_methodology"]
+        assert result == ["small_business_set_aside", "agile_methodology"]
 
     def test_garbage_output(self):
         assert parse_flags("I found several concerning issues with this RFP") == []
 
     def test_blank_lines_ignored(self):
-        raw = "brownfield\n\n\nagile_methodology\n"
+        raw = "small_business_set_aside\n\n\nagile_methodology\n"
         result = parse_flags(raw)
-        assert result == ["brownfield", "agile_methodology"]
+        assert result == ["small_business_set_aside", "agile_methodology"]
 
     def test_none_returns_empty(self):
         assert parse_flags("none") == []
@@ -50,19 +50,19 @@ class TestParseFlags:
         assert parse_flags("None") == []
 
     def test_comma_separated(self):
-        raw = "waterfall_methodology, onsite_required"
+        raw = "lpta_source_selection, small_business_set_aside"
         result = parse_flags(raw)
-        assert result == ["waterfall_methodology", "onsite_required"]
+        assert result == ["lpta_source_selection", "small_business_set_aside"]
 
     def test_comma_and_newline_mixed(self):
-        raw = "waterfall_methodology, onsite_required\nagile_methodology"
+        raw = "lpta_source_selection, small_business_set_aside\nagile_methodology"
         result = parse_flags(raw)
-        assert result == ["waterfall_methodology", "onsite_required", "agile_methodology"]
+        assert result == ["lpta_source_selection", "small_business_set_aside", "agile_methodology"]
 
     def test_comma_separated_with_prose(self):
-        raw = "waterfall_methodology, some junk, agile_methodology"
+        raw = "lpta_source_selection, some junk, agile_methodology"
         result = parse_flags(raw)
-        assert result == ["waterfall_methodology", "agile_methodology"]
+        assert result == ["lpta_source_selection", "agile_methodology"]
 
     def test_none_no_flag_returns_empty(self):
         assert parse_flags("None, no_flag") == []

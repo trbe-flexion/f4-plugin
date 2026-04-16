@@ -57,11 +57,11 @@ tokenizer_config.json, chat_template.jinja.
 
 - Model name: `f4-llama-3b-flag-detector`
 - S3 path: `s3://trbe-f4-finetuned-model/`
-- Import Job Name: `importJob-20260314T194845`
-- Service Role Name: `executionRoleName-20260314T194845` (auto-created with S3 read access)
+- Import Job Name: `importJob-20260316T111124`
+- Service Role Name: `executionRoleName-20260316T111124` (auto-created with S3 read access)
 - Region: us-east-1
 
-Model ARN: `arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc`
+Model ARN: `arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t`
 Status: complete
 
 ## 4. Verify Endpoint Inference

@@ -80,27 +80,33 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   ---
   Keep (Small LLM on Chunks)
 
-  Flags with explicit, formulaic language that a fine-tuned small model can reliably detect from a partial chunk:
+  Flags with explicit, formulaic language that a fine-tuned small model can reliably detect from a partial chunk.
+  Reduced to 7 high-performing flags after evaluation on real RFP data:
 
-  - off_the_shelf_software
   - lpta_source_selection
   - small_business_set_aside
   - 8a_set_aside
-  - wosb_set_aside (includes edwosb — merged for training; distinction too narrow for chunk-level detection)
   - sdvosb_set_aside
   - hubzone_set_aside
   - agile_methodology
   - oral_presentation
-  - design_exercise
-  - budget_too_low
-  - onsite_required
-  - large_team
-  - marginal_short_duration
   - no_flag (special: output when no flags are detected in a chunk; filtered out by harness, not a real flag)
 
   ---
   Drop (Not assigned to small LLM)
 
+  Previously in Keep, dropped because chunk-level context is insufficient:
+  - budget_too_low — Dollar figure in a chunk can't be confirmed as total contract value.
+  - onsite_required — Nuance around hybrid/remote exceptions requires broader document context.
+  - large_team — FTE count in a chunk is typically a subteam, not full scope.
+
+  Previously in Keep, dropped due to poor model performance (likely needs better training data):
+  - off_the_shelf_software — High false-positive rate on real data.
+  - wosb_set_aside — Insufficient training signal (includes edwosb; distinction too narrow).
+  - design_exercise — Insufficient training signal.
+  - marginal_short_duration — Insufficient training signal.
+
+  Never assigned to small LLM:
   - scope_misalignment — Requires document-level context to distinguish incidental non-software content from a genuinely
   out-of-scope RFP.
   - narrow_scope — Needs holistic read to confirm no software product is being built.

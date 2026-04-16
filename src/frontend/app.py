@@ -102,7 +102,9 @@ def build_app(pipeline: F4Pipeline) -> gr.Blocks:
             file_types=[".pdf", ".docx"],
         )
 
-        analyze_btn = gr.Button("Analyze", variant="primary")
+        with gr.Row():
+            analyze_btn = gr.Button("Analyze", variant="primary")
+            clear_btn = gr.Button("Clear", variant="secondary")
 
         result_output = gr.Textbox(
             label="Decision",
@@ -121,6 +123,11 @@ def build_app(pipeline: F4Pipeline) -> gr.Blocks:
             fn=handler,
             inputs=[file_input],
             outputs=[result_output, details_output],
+        )
+        clear_btn.click(
+            fn=lambda: (None, "", ""),
+            inputs=[],
+            outputs=[file_input, result_output, details_output],
         )
 
     return app

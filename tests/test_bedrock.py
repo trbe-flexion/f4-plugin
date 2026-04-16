@@ -146,7 +146,6 @@ class TestSystemPrompt:
 
     def test_contains_rules(self):
         assert "one flag name per line" in SYSTEM_PROMPT
-        assert "do not infer from weak signals" in SYSTEM_PROMPT
 
 
 class TestProtocolCompliance:

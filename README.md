@@ -8,7 +8,7 @@ A Python library that screens government RFP text for disqualifying flags before
 
 Designed as a standalone plug-in for the [opp-capture](https://github.com/trbe-flexion/flexion-opp-capture) pipeline. If F4 disappears, opp-capture keeps working.
 
-See the [Architectural Decision Record](final_adr.md) for full design details.
+See the [Architectural Decision Record](.development-notes/notes/final_adr.md) for full design details.
 
 ## How It Works
 

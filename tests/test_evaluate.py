@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from training.evaluate import (
+from evaluation.evaluate import (
     compute_metrics,
     load_test_examples,
     parse_args,
@@ -22,7 +22,7 @@ def sample_test_jsonl(tmp_path):
             "messages": [
                 {"role": "system", "content": "You are a flag detection model."},
                 {"role": "user", "content": "Analyze this chunk."},
-                {"role": "assistant", "content": "waterfall_methodology"},
+                {"role": "assistant", "content": "lpta_source_selection"},
             ]
         },
         {
@@ -36,7 +36,7 @@ def sample_test_jsonl(tmp_path):
             "messages": [
                 {"role": "system", "content": "You are a flag detection model."},
                 {"role": "user", "content": "Multi-flag chunk."},
-                {"role": "assistant", "content": "brownfield\nlpta_source_selection"},
+                {"role": "assistant", "content": "small_business_set_aside\nlpta_source_selection"},
             ]
         },
     ]
@@ -54,7 +54,7 @@ class TestLoadTestExamples:
 
     def test_single_flag_ground_truth(self, sample_test_jsonl):
         examples = load_test_examples(sample_test_jsonl)
-        assert examples[0]["ground_truth"] == {"waterfall_methodology"}
+        assert examples[0]["ground_truth"] == {"lpta_source_selection"}
 
     def test_no_flag_ground_truth(self, sample_test_jsonl):
         examples = load_test_examples(sample_test_jsonl)
@@ -62,7 +62,7 @@ class TestLoadTestExamples:
 
     def test_multi_flag_ground_truth(self, sample_test_jsonl):
         examples = load_test_examples(sample_test_jsonl)
-        assert examples[2]["ground_truth"] == {"brownfield", "lpta_source_selection"}
+        assert examples[2]["ground_truth"] == {"small_business_set_aside", "lpta_source_selection"}
 
     def test_messages_exclude_assistant(self, sample_test_jsonl):
         examples = load_test_examples(sample_test_jsonl)
@@ -75,8 +75,8 @@ class TestComputeMetrics:
     def test_perfect_predictions(self):
         results = [
             {
-                "predicted": {"waterfall_methodology"},
-                "ground_truth": {"waterfall_methodology"},
+                "predicted": {"lpta_source_selection"},
+                "ground_truth": {"lpta_source_selection"},
                 "format_ok": True,
             },
             {"predicted": set(), "ground_truth": set(), "format_ok": True},
@@ -89,8 +89,8 @@ class TestComputeMetrics:
     def test_all_wrong(self):
         results = [
             {
-                "predicted": {"brownfield"},
-                "ground_truth": {"waterfall_methodology"},
+                "predicted": {"small_business_set_aside"},
+                "ground_truth": {"lpta_source_selection"},
                 "format_ok": True,
             },
         ]
@@ -101,8 +101,8 @@ class TestComputeMetrics:
     def test_partial_match(self):
         results = [
             {
-                "predicted": {"brownfield", "waterfall_methodology"},
-                "ground_truth": {"brownfield", "lpta_source_selection"},
+                "predicted": {"small_business_set_aside", "agile_methodology"},
+                "ground_truth": {"small_business_set_aside", "lpta_source_selection"},
                 "format_ok": True,
             },
         ]
@@ -113,7 +113,7 @@ class TestComputeMetrics:
     def test_format_compliance(self):
         results = [
             {"predicted": set(), "ground_truth": set(), "format_ok": True},
-            {"predicted": set(), "ground_truth": {"brownfield"}, "format_ok": False},
+            {"predicted": set(), "ground_truth": {"small_business_set_aside"}, "format_ok": False},
             {"predicted": set(), "ground_truth": set(), "format_ok": True},
         ]
         metrics = compute_metrics(results)
@@ -163,15 +163,15 @@ class TestPrintPerFlagMetrics:
     def test_prints_per_flag(self, capsys):
         results = [
             {
-                "predicted": {"waterfall_methodology"},
-                "ground_truth": {"waterfall_methodology"},
+                "predicted": {"lpta_source_selection"},
+                "ground_truth": {"lpta_source_selection"},
             },
-            {"predicted": {"brownfield"}, "ground_truth": set()},
+            {"predicted": {"small_business_set_aside"}, "ground_truth": set()},
         ]
         print_per_flag_metrics(results)
         output = capsys.readouterr().out
-        assert "waterfall_methodology" in output
-        assert "brownfield" in output
+        assert "lpta_source_selection" in output
+        assert "small_business_set_aside" in output
 
 
 class TestPrintComparison:
@@ -209,10 +209,10 @@ class TestSaveResults:
         metrics = {"precision": 0.9, "recall": 0.8}
         results = [
             {
-                "predicted": {"brownfield"},
-                "ground_truth": {"brownfield"},
-                "raw_output": "brownfield",
-                "raw_ground_truth": "brownfield",
+                "predicted": {"small_business_set_aside"},
+                "ground_truth": {"small_business_set_aside"},
+                "raw_output": "small_business_set_aside",
+                "raw_ground_truth": "small_business_set_aside",
                 "format_ok": True,
             }
         ]
@@ -223,7 +223,7 @@ class TestSaveResults:
             data = json.load(f)
         assert data["metrics"]["precision"] == 0.9
         assert len(data["results"]) == 1
-        assert data["results"][0]["predicted"] == ["brownfield"]
+        assert data["results"][0]["predicted"] == ["small_business_set_aside"]
 
 
 class TestParseArgs:

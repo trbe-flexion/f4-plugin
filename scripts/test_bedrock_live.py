@@ -20,23 +20,13 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "- Output one flag name per line, using only the exact flag names listed below\n"
     "- If no flags are present, output: no_flag\n"
-    "- Do not output explanations, reasoning, or any other text\n"
-    "- Only detect a flag when the evidence in the chunk is explicit\n\n"
+    "- Do not output explanations, reasoning, or any other text\n\n"
     "Valid flags:\n"
-    "waterfall_methodology, off_the_shelf_software, no_custom_development, lpta_source_selection, "
-    "small_business_set_aside, 8a_set_aside, wosb_set_aside, edwosb_set_aside, sdvosb_set_aside, "
-    "hubzone_set_aside, agile_methodology, oral_presentation, design_exercise, budget_too_low, "
-    "brownfield, onsite_required, onsite_madison, large_team, marginal_short_duration, no_flag"
+    "oral_presentation, small_business_set_aside, agile_methodology, lpta_source_selection, "
+    "8a_set_aside, sdvosb_set_aside, hubzone_set_aside, no_flag"
 )
 
 TEST_CASES = [
-    {
-        "name": "Waterfall (should detect)",
-        "text": (
-            "The contractor shall follow a traditional waterfall software development lifecycle."
-        ),
-        "expected": "waterfall_methodology",
-    },
     {
         "name": "Agile (should detect)",
         "text": (
@@ -50,17 +40,25 @@ TEST_CASES = [
         "expected": "no_flag",
     },
     {
-        "name": "COTS (should detect)",
-        "text": (
-            "The solution must be a commercially available"
-            " off-the-shelf product with no custom development."
-        ),
-        "expected": "off_the_shelf_software",
-    },
-    {
         "name": "Small business set-aside",
         "text": "This procurement is set aside exclusively for small business concerns.",
         "expected": "small_business_set_aside",
+    },
+    {
+        "name": "LPTA (should detect)",
+        "text": (
+            "Award will be made using lowest price technically acceptable"
+            " source selection procedures."
+        ),
+        "expected": "lpta_source_selection",
+    },
+    {
+        "name": "Oral presentation (should detect)",
+        "text": (
+            "Offerors shall prepare and deliver an oral presentation to the evaluation panel "
+            "as part of their technical proposal submission."
+        ),
+        "expected": "oral_presentation",
     },
 ]
 

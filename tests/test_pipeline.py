@@ -29,10 +29,10 @@ class TestF4Pipeline:
         assert result == FilterResult(filter=False)
         detector.detect_flags.assert_not_called()
 
-    def test_single_chunk_black_flag(self):
-        detector = make_mock_detector(["waterfall_methodology"])
+    def test_single_chunk_red_flag_above_threshold(self):
+        detector = make_mock_detector(["lpta_source_selection"])
         tokenizer = make_mock_tokenizer()
-        pipeline = F4Pipeline(detector, tokenizer, max_tokens=1000)
+        pipeline = F4Pipeline(detector, tokenizer, max_tokens=1000, red_flag_threshold=1)
 
         result = pipeline.filter("short text")
 
@@ -50,25 +50,27 @@ class TestF4Pipeline:
     def test_multiple_chunks_with_flags(self):
         detector = make_mock_detector(
             [
-                "brownfield",
+                "small_business_set_aside",
                 "no_flag",
-                "waterfall_methodology",
+                "lpta_source_selection",
             ]
         )
         tokenizer = MagicMock()
         tokenizer.encode.return_value = list(range(30))
         tokenizer.decode.side_effect = lambda ids: "x" * len(ids)
 
-        pipeline = F4Pipeline(detector, tokenizer, max_tokens=10, overlap_tokens=0)
+        pipeline = F4Pipeline(
+            detector, tokenizer, max_tokens=10, overlap_tokens=0, red_flag_threshold=2
+        )
         result = pipeline.filter("a" * 30)
 
-        assert result.filter is True  # waterfall is black
+        assert result.filter is True  # 2 red flags meets threshold
 
     def test_deduplicates_flags(self):
         detector = make_mock_detector(
             [
-                "brownfield",
-                "brownfield",
+                "small_business_set_aside",
+                "small_business_set_aside",
             ]
         )
         tokenizer = MagicMock()
@@ -78,16 +80,16 @@ class TestF4Pipeline:
         pipeline = F4Pipeline(detector, tokenizer, max_tokens=10, overlap_tokens=0)
         result = pipeline.filter("a" * 20)
 
-        assert result.filter is False  # brownfield is red, default threshold=999
+        assert result.filter is False  # single red flag, default threshold=999
 
     def test_retry_on_parse_failure(self):
         detector = MagicMock()
         detector.detect_flags.side_effect = [
             "garbage output",
-            "waterfall_methodology",
+            "lpta_source_selection",
         ]
         tokenizer = make_mock_tokenizer()
-        pipeline = F4Pipeline(detector, tokenizer, max_tokens=1000)
+        pipeline = F4Pipeline(detector, tokenizer, max_tokens=1000, red_flag_threshold=1)
 
         result = pipeline.filter("some text")
 
@@ -108,7 +110,7 @@ class TestF4Pipeline:
     def test_red_flag_threshold(self):
         detector = make_mock_detector(
             [
-                "brownfield\nlpta_source_selection",
+                "small_business_set_aside\nlpta_source_selection",
             ]
         )
         tokenizer = make_mock_tokenizer()

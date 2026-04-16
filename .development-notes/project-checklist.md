@@ -1,6 +1,6 @@
 # F4 Project Checklist
 
-Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_adr.md)
+Checklist extracted from ADR (.development-notes/notes/final_adr.md)
 
 ## 1. Repo & Structure
 - [x] Create repo (`f4-plugin`)
@@ -40,16 +40,16 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
   - 2 RAG seeds per flag reserved (30 total, excluded from splits)
   - off_the_shelf_software capped at 100; negatives capped 1:1 with positives
   - Stratified split by rfp_id (80/10/10): train 1536 / eval 193 / test 191
-- [ ] Retrain on real data (`data/train.jsonl`, `data/eval.jsonl`)
-- [ ] Source manually labeled test set from Tom Willis for ground-truth evaluation
+- [x] Retrain on real data (`data/train.jsonl`, `data/eval.jsonl`)
+- [ ] ~~Source manually labeled test set from Tom Willis~~ *(deferred — not available)*
 
-## 7. RAG Setup *(ChromaDB store + retriever built; populate script ready)*
+## 7. RAG Setup *(ChromaDB store + retriever built; currently disabled — added noise to prompts without improving performance)*
 - [x] Set up ChromaDB vector store (`src/rag/store.py`)
 - [x] Populate script for flag definitions and examples (`scripts/populate_rag.py`)
 - [x] Retriever with training-data-matching context format (`src/rag/retriever.py`)
 - [x] Wired into pipeline as optional dependency (`src/pipeline/filter.py`)
-- [ ] Add real RFP language from Tom
-- [ ] Tune top-k retrieval parameter
+- [ ] ~~Add real RFP language from Tom~~ *(deferred — RAG disabled)*
+- [ ] ~~Tune top-k retrieval parameter~~ *(deferred — RAG disabled)*
 
 ## 8. LoRA Fine-Tuning *(training scripts: `training/train.py`, `training/merge_and_export.py`)*
 - [x] Set up training environment (SageMaker ml.g6.xlarge)
@@ -71,10 +71,10 @@ Checklist extracted from ADR (/Users/travisblount-elliott/Repos/f4-plugin/final_
 - [x] Parser leniency: handle `none`/`None`, comma-separated flags (`src/domain/parsing.py`)
 
 ## 9. Bedrock Deployment
-- [ ] Terraform for Bedrock Custom Model Import + IAM
+- [ ] ~~Terraform for Bedrock Custom Model Import + IAM~~ *(deferred — deployed manually)*
 - [x] Import merged model to Bedrock (Alt/cohort account)
 - [x] Verify endpoint inference (4/5 smoke test, 100% format compliance)
-- [ ] Migrate to Main account (re-import model, recreate IAM — needs Main credentials from team)
+- [ ] ~~Migrate to Main account~~ *(deferred — needs Main credentials from team)*
 
 ## How to Run
 
@@ -120,15 +120,12 @@ Opp-capture integration:
 - [x] Flag deduplication across chunks (`src/pipeline/filter.py`)
 - [x] Algorithmic decision logic (black flag filter + configurable red threshold) (`src/decision/engine.py`)
 - [x] Domain: FilterResult entity, FlagDetector protocol, flag taxonomy (`src/domain/`)
-- [ ] Observability: timing, token counts, cost logging
+- [ ] ~~Observability: timing, token counts, cost logging~~ *(deferred)*
 - [x] BedrockFlagDetector adapter (`src/inference/bedrock.py`)
 
-## 11. Prompt Optimization (TextGrad)
-- [ ] Set up TextGrad on SageMaker
-- [ ] Forward engine: fine-tuned model (local)
-- [ ] Backward engine: Claude Opus via Bedrock
-- [ ] Optimize system prompt
-- [ ] Document results (even if it doesn't help)
+## 11. Prompt Optimization *(manual optimization done; TextGrad deferred)*
+- [x] Manual prompt optimization through iterative evaluation (8 runs)
+- [ ] ~~TextGrad automated optimization~~ *(deferred — learned that optimization likely needs to be flag-by-flag, not whole-prompt)*
 
 ## 12. Gradio Frontend
 - [x] File upload component (PDF/DOCX, multiple files) (`src/frontend/app.py`)
@@ -138,12 +135,12 @@ Opp-capture integration:
 - [x] `share=True` tunnel + password auth support
 - [x] Wire with real BedrockFlagDetector + RAG store for live demo (`src/frontend/__main__.py`)
 
-## 13. Evaluation
-- [ ] Precision/recall on synthetic eval set
-- [ ] Precision/recall on real RFP test set
-- [ ] Delta comparison: F4 vs current string-based filtering on same RFPs
-- [ ] Opp-capture adapter for delta comparison
-- [ ] Cost comparison vs Claude baseline (using observability data)
+## 13. Evaluation *(deferred — waiting for production deployment)*
+- [x] Precision/recall on synthetic eval set (Run 1–4)
+- [x] Precision/recall on real-data-derived test set (Run 5–8, best: F1 88.7%)
+- [ ] ~~Delta comparison: F4 vs current string-based filtering on same RFPs~~ *(deferred)*
+- [ ] ~~Opp-capture adapter for delta comparison~~ *(deferred)*
+- [ ] ~~Cost comparison vs Claude baseline~~ *(deferred — needs observability data)*
 
 ## 14. Documentation & Presentation
 - [ ] Technical docs (model selection, training data, eval results, deployment)

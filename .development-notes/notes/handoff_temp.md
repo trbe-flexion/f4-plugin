@@ -1,102 +1,140 @@
-# Handoff: Run 8 — Demo Model
+# F4 Plugin — Session Handoff
 
-## Current State
+## What This Project Is
 
-Run 8 is the demo model. Trained on 7 flags (reduced from 14), evaluated on
-held-out test set: **88.7% F1, 92.2% precision, 85.5% recall**. Adapter is
-on SageMaker at `models/adapter/`. Training and eval are complete.
+F4 (Flexion Fast Fail Filtering) is a Python library that screens government RFP text for disqualifying flags before expensive LLM analysis. It replaces string-based keyword matching in Flexion's opp-capture pipeline with a fine-tuned Llama 3.2 3B model deployed to AWS Bedrock Custom Model Import.
 
-## What Was Done This Session
+The library is standalone — opp-capture imports it via adapter behind an existing port. If F4 disappears, opp-capture keeps working.
 
-1. **Cost analysis killed the relabeling approach** — full Opus relabeling of
-   958 RFPs estimated at $1,400–$2,300. Too expensive.
+## What's Been Built (Working)
 
-2. **Pivoted to flag reduction** — instead of relabeling, dropped the 7
-   worst-performing flags from Run 6 results and rebuilt the training set
-   from existing `opus_validated_real.jsonl` data.
+**Full pipeline** (`src/pipeline/filter.py`): `f4.filter(text)` → chunk text → concurrent Bedrock inference → parse/retry → deduplicate flags → algorithmic decision → `FilterResult`.
 
-3. **Kept 7 flags**: oral_presentation, small_business_set_aside,
-   agile_methodology, lpta_source_selection, 8a_set_aside, sdvosb_set_aside,
-   hubzone_set_aside.
+**7 active flags** the model detects (reduced from an original set of 30+ after iterative evaluation):
+- Red: `lpta_source_selection`, `small_business_set_aside`
+- Blue: `8a_set_aside`, `sdvosb_set_aside`, `hubzone_set_aside`
+- Green: `agile_methodology`, `oral_presentation`
 
-4. **Dropped 7 flags**: design_exercise (0/0), large_team (0/0),
-   marginal_short_duration (50/10), budget_too_low (100/25),
-   onsite_required (56/83 FP-heavy), wosb_set_aside (57/100 FP-heavy),
-   off_the_shelf_software (67/33).
+No black (fast-fail) flags remain in the current model — all former black flags were dropped because they required wider document context or had insufficient training data. The user is considering reclassifying `lpta_source_selection` as black.
 
-5. **Code changes**:
-   - `scripts/build_training_set.py`: Added `KEEP_FLAGS` constant that filters
-     non-kept flags during Step 0 (strips flags from records, records with no
-     remaining flags become no_flag).
-   - `scripts/system-prompt.md`: Updated to list only 7 flags + no_flag.
-   - Old data files moved to `data/archive/`.
+**Key components:**
+- `src/domain/` — entities, parsing (with retry/leniency for none/comma-separated), taxonomy (7 flags), FlagDetector protocol
+- `src/chunking/chunker.py` — word-based approximate chunking (~1.3 tokens/word). Replaced HF tokenizer to avoid gated model auth dependency. See bedrock-deployment.md §5.
+- `src/inference/bedrock.py` — BedrockFlagDetector adapter, system prompt embedded
+- `src/decision/engine.py` — algorithmic decision: black flag → FILTER, red flags ≥ threshold → FILTER. Threshold defaults to 999 (effectively disabled).
+- `src/rag/` — ChromaDB RAG store + retriever. Code is intact but **currently not active** — the model was trained and evaluated without RAG. Pipeline accepts `rag_store=None` (default). Not ruled out for future use.
+- `src/frontend/` — Gradio app with PDF/DOCX upload, calls real pipeline via Bedrock. `--share` tunnel + password auth. Recently tested and working.
 
-6. **Training**: 5 epochs, 80/10/10 split, batch 8 / grad accum 2,
-   negative ratio 0.2, no RAG, max_seq_length 2048. Same config as Run 6
-   except the split (was 90/10/0).
+**Training infrastructure** (runs on SageMaker ml.g6.xlarge):
+- `training/train.py` — LoRA fine-tuning with SFTTrainer
+- `training/merge_and_export.py` — merge LoRA → base, export safetensors. Includes config.json fix for Bedrock compatibility (rope_parameters→rope_scaling, transformers version downgrade). See bedrock-deployment.md §6 for the full RoPE debugging story.
+- `training/check_token_lengths.py` — token length distribution check
+- `evaluation/evaluate.py` — flag precision, chunk recall, format compliance, per-flag breakdown, no_flag hallucination stats
 
-## Next Steps: Merge + Deploy to Bedrock
+**Tests:** 164 passing, 89% coverage. All model/Bedrock calls mocked.
 
-### 1. Merge LoRA adapter back to base model
+## Current Model Performance (Run 8 — Latest)
 
-On SageMaker:
+Held-out test set, 61 chunks, 7 flags:
+- F1: 88.7%, Precision: 92.2%, Recall: 85.5%, Format compliance: 98.4%
+- Strongest: oral_presentation (100/100), hubzone (100/100)
+- Weakest: small_business_set_aside (77% precision, 3 FP)
+- no_flag hallucination: 37.5% (3/8 no_flag chunks got false flags)
 
-```bash
-PYTHONPATH=. uv run python scripts/merge_adapter.py
+Full evaluation history (8 runs) is in `.development-notes/notes/evaluation_results.md`. The progression tells a story: synthetic data → real data → iterative data cleaning → flag reduction → current performance.
+
+## Training Data Pipeline
+
+Source: ~958 real RFPs labeled by Claude (Sonnet first pass → Opus validation). The validated corpus is `data/archive/opus_validated_real.jsonl` (4159 records, 3779 usable).
+
+Current active splits (7-flag subset, built by `scripts/build_training_set.py`):
+- `data/train.jsonl` (493 examples)
+- `data/eval.jsonl` (61)
+- `data/test.jsonl` (61)
+
+`data/archive/test_reserve.jsonl` (501 chunks) — Opus-labeled with a stricter prompt. Potentially useful if filtered to the current 7 flags.
+
+Labeling scripts in `scripts/` are prefixed by which model runs them:
+- `sonnet_label_real_data.py` — initial Sonnet labeling
+- `opus_validate_labels.py` — Opus reviews Sonnet labels
+- `opus_label_test_set.py` — Opus labels test set directly
+- `opus_relabel_training_data.py` — Opus two-phase re-labeling pipeline (chunk + self-validate)
+
+## What Was Just Cleaned Up (This Session)
+
+1. **Taxonomy aligned to 7 active flags** — `taxonomy.py` trimmed from 19→7, `collated-flag-set.md` Keep/Drop sections updated with reasons for each demotion, all tests updated.
+
+2. **Scripts reorganized:**
+   - Renamed labeling scripts with model prefix (sonnet_/opus_)
+   - Archived one-time pipeline scripts to `archive/scripts/` (supplement_rare_flags, clean_zero_recall_flags, oversample_cleaned_flags, rewrap_rag_context, populate_rag)
+   - Removed: bedrock_token_limit.py (documented in bedrock-deployment.md), check_token_lengths.py (duplicate of training/), split_test.py (superseded), generate_data.py (superseded by real data pipeline)
+
+3. **Data cleaned:**
+   - Archived `data/synthetic/` and `data/chromadb/` to `archive/data/`
+   - Purged stale files from `data/archive/` (old splits, sonnet_labeled_real, rag_exemplars, test-p-override) — kept only opus_validated_real.jsonl and test_reserve.jsonl
+   - Removed stale `training/evaluate.py` (duplicate of evaluation/evaluate.py, which has extra no_flag hallucination stats)
+
+4. **Misc:** Moved `final_adr.md` into `.development-notes/notes/`, updated references in README and checklist. Removed empty `infra/terraform/` and redundant `data/.gitkeep`.
+
+## Repo Structure (Post-Cleanup)
+
+```
+src/
+  chunking/chunker.py        — word-based text chunking
+  decision/engine.py         — algorithmic filter decision (black/red threshold)
+  domain/                    — entities, parsing, protocols, taxonomy (7 flags)
+  frontend/                  — Gradio app + text extraction
+  inference/bedrock.py       — BedrockFlagDetector + system prompt
+  pipeline/filter.py         — f4.filter() orchestrator
+  rag/                       — ChromaDB store + retriever (code present, not active)
+
+scripts/
+  build_training_set.py      — build train/eval/test from opus_validated_real.jsonl
+  debug_pipeline.py          — per-chunk debug output
+  sonnet_label_real_data.py  — Sonnet labeling pipeline
+  opus_label_test_set.py     — Opus test set labeling
+  opus_validate_labels.py    — Opus validation of Sonnet labels
+  opus_relabel_training_data.py — Opus two-phase re-labeling
+  test_bedrock_live.py       — live Bedrock smoke test
+  train.py                   — LoRA fine-tuning (SageMaker)
+  system-prompt.md           — system prompt source of truth
+
+training/                    — SageMaker training scripts (train, merge, token check)
+evaluation/evaluate.py       — evaluation with per-flag + no_flag hallucination stats
+tests/                       — 164 tests, 89% coverage
+
+data/
+  train.jsonl, eval.jsonl, test.jsonl  — active 7-flag splits
+  archive/opus_validated_real.jsonl    — full validated corpus (source for rebuilding splits)
+  archive/test_reserve.jsonl           — 501-chunk Opus-labeled test set (strict prompt)
+
+.development-notes/
+  project-checklist.md                 — master checklist with completion status
+  notes/collated-flag-set.md           — full flag universe + Keep/Drop rationale
+  notes/evaluation_results.md          — 8 runs of eval results with commentary
+  notes/bedrock-deployment.md          — deployment log including RoPE debugging
+  notes/final_adr.md                   — architectural decision record
+  notes/presentation-notes.md          — presentation ideas and talking points
+  notes/test-labeling-prompt.md        — evolved labeling prompt
+  plans/                               — historical implementation plans
+
+archive/                     — stale scripts and data (recoverable if needed)
 ```
 
-Check that this script exists and outputs to the expected path (likely
-`models/merged/`). If it doesn't exist, the merge is straightforward:
-load base model + PeftModel, call `merge_and_unload()`, save.
+## Next Steps
 
-### 2. Export as HF safetensors
+1. **Review the project checklist** (`.development-notes/project-checklist.md`) — assess what's done, what's incomplete, and what's out of scope for the presentation.
+2. **Prepare a 10-minute presentation** of what's been implemented. Key references:
+   - `.development-notes/notes/presentation-notes.md` — existing talking points and ideas
+   - `.development-notes/notes/evaluation_results.md` — the iterative improvement story
+   - `.development-notes/notes/bedrock-deployment.md` — the RoPE debugging story
+   - The Gradio demo is live and working for a live walkthrough
+3. The checklist has unchecked items (TextGrad, Terraform, observability, delta eval, Tom Willis data) — decide what to present as "implemented" vs. "designed but deferred" vs. "future work."
 
-The merged model should already be in safetensors format from the merge step.
-Verify the output directory contains `model.safetensors` (or sharded
-`model-00001-of-*.safetensors`) + `config.json` + `tokenizer.json`.
+## Important Context
 
-### 3. Upload to S3 for Bedrock Custom Model Import
-
-```bash
-aws s3 cp models/merged/ s3://<bucket>/f4-model/ --recursive
-```
-
-### 4. Bedrock Custom Model Import
-
-Terraform config is in the repo. Create the custom model import job pointing
-at the S3 path. Once imported, note the model ARN for the inference client.
-
-### 5. Update inference client
-
-Point the Bedrock inference client at the new model ARN. Test with the
-`scripts/test_bedrock_live.py` script.
-
-### 6. Demo prep
-
-The Gradio frontend (`src/frontend.py`) needs to be wired to the Bedrock
-endpoint. Upload a real RFP, show flag detection results. The 7-flag model
-should produce clean, high-confidence results suitable for a live demo.
-
-## Key Files
-
-| File | Role |
-|------|------|
-| `models/adapter/` | LoRA adapter (on SageMaker) |
-| `data/train.jsonl` | Training data (7 flags, 80% split) |
-| `data/eval.jsonl` | Eval split (10%) |
-| `data/test.jsonl` | Held-out test split (10%) |
-| `data/archive/opus_validated_real.jsonl` | Source data (all flags) |
-| `scripts/build_training_set.py` | Build script with KEEP_FLAGS filter |
-| `scripts/system-prompt.md` | System prompt (7 flags) |
-| `evaluation/evaluate.py` | Eval script |
-| `evaluation/finetuned.json` | Run 8 detailed results |
-
-## Open Questions
-
-- **wosb_set_aside**: Dropped due to FP-heavy results (57/100 in Run 6), but
-  it had 42 examples in the source data. Could potentially be recovered with
-  cleaner training data if needed post-demo.
-- **No-flag hallucination rate**: 37.5% (3/8) on test set. Small sample, but
-  worth watching. The model occasionally predicts flags on clean chunks.
-- **Bedrock context limit**: Likely 8192 tokens for Llama 3 family. Not
-  relevant for current 2048 training but could enable larger chunks in future.
+- **Academic project** — this is a learning exercise. Understanding why/how matters more than speed.
+- **Git: user handles all git operations.** Never commit, push, or make git write operations.
+- **Bedrock model** is deployed on the Alt/cohort account. Model ARN in checklist. Cold start ~1-2 min after idle.
+- **Tom Willis** maintains opp-capture and has real RFP decision data — not yet integrated.
+- **opp-capture repo** is at `/Users/travisblount-elliott/Repos/flexion-opp-capture` — F4 plugs in behind `OpportunityEvaluatorGateway` port.
