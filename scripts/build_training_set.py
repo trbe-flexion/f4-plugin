@@ -204,10 +204,13 @@ def stratified_split(
 
     # Target counts per split
     total = len(records)
+    eval_count = int(total * eval_pct / 100)
+    test_count = int(total * test_pct / 100)
+    train_count = total - eval_count - test_count
     targets = {
-        "train": int(total * train_pct / 100),
-        "eval": int(total * eval_pct / 100),
-        "test": total - int(total * train_pct / 100) - int(total * eval_pct / 100),
+        "train": train_count,
+        "eval": eval_count,
+        "test": test_count,
     }
 
     # Track per-flag counts in each split to distribute evenly

@@ -1,5 +1,55 @@
 # F4 Evaluation Results
 
+## Run 6: Onsite cleaning + neg ratio 0.2 + correct grad accum (4/15)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 5 epochs, 90/10/0 split, max_seq_length 2048
+Test set: 118 real RFP chunks (eval split, no held-out test)
+Training config: No RAG context, negatives at 0.2 ratio, onsite_required cleaned (95→61),
+batch 8 / grad accum 2 (effective batch 16), all data changes from Run 5
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 118 |
+| Format compliance | 100.0% |
+| Precision | 81.2% |
+| Recall | 54.2% |
+| F1 | 65.0% |
+| Predicted flags | 64 |
+| Ground truth flags | 96 |
+| Correct | 52 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 40.0% | 2 | 0 | 3 |
+| agile_methodology | 80.0% | 36.4% | 4 | 1 | 7 |
+| budget_too_low | 100.0% | 25.0% | 1 | 0 | 3 |
+| design_exercise | 0.0% | 0.0% | 0 | 0 | 6 |
+| hubzone_set_aside | 100.0% | 100.0% | 3 | 0 | 0 |
+| large_team | 0.0% | 0.0% | 0 | 0 | 4 |
+| lpta_source_selection | 100.0% | 75.0% | 6 | 0 | 2 |
+| marginal_short_duration | 50.0% | 10.0% | 1 | 1 | 9 |
+| off_the_shelf_software | 66.7% | 33.3% | 2 | 1 | 4 |
+| onsite_required | 55.6% | 83.3% | 5 | 4 | 1 |
+| oral_presentation | 92.3% | 92.3% | 12 | 1 | 1 |
+| sdvosb_set_aside | 100.0% | 75.0% | 3 | 0 | 1 |
+| small_business_set_aside | 90.0% | 75.0% | 9 | 1 | 3 |
+| wosb_set_aside | 57.1% | 100.0% | 4 | 3 | 0 |
+
+no_flag: 29 chunks — 26/29 correct (89.7%), 3/29 hallucinated (10.3%)
+
+**Changes from Run 5:** Cleaned onsite_required (removed 34 examples without explicit
+onsite keywords). Reduced negative ratio 0.25→0.2. 90/10/0 split (no test holdout).
+Batch 8 / grad accum 2 (correct effective batch 16).
+
+**Results vs Run 5:** F1 improved 63.9%→65.0% (+1.1). Recall improved 53.0%→54.2%.
+Precision held (81.2% vs 80.3%). marginal_short_duration back from 0 (1 TP). Onsite FP
+unchanged (4) but recall down slightly (90%→83%). oral_presentation improved to 92/92.
+budget_too_low still firing (1 TP). design_exercise and large_team still zero.
+
+---
+
 ## Run 5: Data cleaning pass (4/15)
 
 Model: meta-llama/Llama-3.2-3B-Instruct
