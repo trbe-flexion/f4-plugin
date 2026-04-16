@@ -34,6 +34,18 @@ TOP_K = 3
 RAG_PER_FLAG = 2
 FLAG_CAP: dict[str, int] = {}
 
+# Only these flags are kept in the training set. Records with flags not in this
+# set have those flags stripped; if no flags remain, the record becomes no_flag.
+KEEP_FLAGS: set[str] = {
+    "oral_presentation",
+    "small_business_set_aside",
+    "lpta_source_selection",
+    "hubzone_set_aside",
+    "sdvosb_set_aside",
+    "8a_set_aside",
+    "agile_methodology",
+}
+
 
 def load_jsonl(path: Path) -> list[dict]:
     records = []
@@ -321,6 +333,13 @@ def main() -> None:
     raw = load_jsonl(input_path)
     usable = [r for r in raw if r.get("validation") != "dropped"]
     print(f"  Loaded {len(raw)} total, {len(usable)} usable (non-dropped)")
+
+    # Filter to KEEP_FLAGS — strip non-kept flags, records become no_flag if empty
+    for r in usable:
+        r["flags"] = [f for f in r.get("flags", []) if f in KEEP_FLAGS]
+    stripped = sum(1 for r in usable if not r.get("flags"))
+    print(f"  After KEEP_FLAGS filter: {len(usable) - stripped} flagged, {stripped} no-flag")
+    print(f"  Kept flags: {sorted(KEEP_FLAGS)}")
 
     # Dedup by chunk_text
     seen: set[str] = set()

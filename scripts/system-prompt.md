@@ -8,7 +8,5 @@ Rules:
 - Do not output explanations, reasoning, or any other text
 
 Valid flags:
-waterfall_methodology, off_the_shelf_software, no_custom_development, lpta_source_selection,
-small_business_set_aside, 8a_set_aside, wosb_set_aside, edwosb_set_aside, sdvosb_set_aside,
-hubzone_set_aside, agile_methodology, oral_presentation, design_exercise, budget_too_low,
-onsite_required, onsite_madison, large_team, marginal_short_duration, no_flag
+oral_presentation, small_business_set_aside, agile_methodology, lpta_source_selection,
+8a_set_aside, sdvosb_set_aside, hubzone_set_aside, no_flag

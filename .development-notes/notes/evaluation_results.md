@@ -1,5 +1,90 @@
 # F4 Evaluation Results
 
+## Run 7: 9 epochs, 90/10/0 split (4/16)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 9 epochs (best checkpoint epoch 6), 90/10/0 split, max_seq_length 2048
+Training config: No RAG context, negatives at 0.2 ratio, batch 8 / grad accum 2
+All data changes from Run 6 (onsite cleaned, brownfield dropped, budget/large_team cleaned+oversampled)
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+### Eval split results (leaked data — directional only)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 122 |
+| Format compliance | 100.0% |
+| Precision | 76.3% |
+| Recall | 61.1% |
+| F1 | 67.8% |
+| Predicted flags | 76 |
+| Ground truth flags | 95 |
+| Correct | 58 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 80.0% | 4 | 0 | 1 |
+| agile_methodology | 90.0% | 81.8% | 9 | 1 | 2 |
+| budget_too_low | 0.0% | 0.0% | 0 | 0 | 4 |
+| design_exercise | 0.0% | 0.0% | 0 | 0 | 6 |
+| hubzone_set_aside | 100.0% | 100.0% | 3 | 0 | 0 |
+| large_team | 100.0% | 25.0% | 1 | 0 | 3 |
+| lpta_source_selection | 80.0% | 50.0% | 4 | 1 | 4 |
+| marginal_short_duration | 66.7% | 40.0% | 4 | 2 | 6 |
+| off_the_shelf_software | 75.0% | 60.0% | 3 | 1 | 2 |
+| onsite_required | 66.7% | 100.0% | 6 | 3 | 0 |
+| oral_presentation | 72.2% | 100.0% | 13 | 5 | 0 |
+| sdvosb_set_aside | 100.0% | 75.0% | 3 | 0 | 1 |
+| small_business_set_aside | 62.5% | 41.7% | 5 | 3 | 7 |
+| wosb_set_aside | 60.0% | 75.0% | 3 | 2 | 1 |
+
+no_flag: 37 chunks — 30/37 correct (81.1%), 7/37 hallucinated (18.9%)
+
+### Held-out test_reserve.jsonl results (501 chunks, Opus-labeled with strict prompt)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 501 |
+| Format compliance | 99.8% |
+| Precision | 34.3% |
+| Recall | 34.3% |
+| F1 | 34.3% |
+| Predicted flags | 108 |
+| Ground truth flags | 108 |
+| Correct | 37 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| agile_methodology | 80.8% | 38.2% | 21 | 5 | 34 |
+| budget_too_low | 0.0% | 0.0% | 0 | 1 | 0 |
+| design_exercise | 0.0% | 0.0% | 0 | 3 | 4 |
+| large_team | 0.0% | 0.0% | 0 | 0 | 7 |
+| lpta_source_selection | 0.0% | 0.0% | 0 | 8 | 1 |
+| marginal_short_duration | 0.0% | 0.0% | 0 | 5 | 3 |
+| off_the_shelf_software | 0.0% | 0.0% | 0 | 1 | 19 |
+| onsite_required | 7.1% | 50.0% | 1 | 13 | 1 |
+| oral_presentation | 27.7% | 92.9% | 13 | 34 | 1 |
+| sdvosb_set_aside | 0.0% | 0.0% | 0 | 1 | 0 |
+| small_business_set_aside | 100.0% | 66.7% | 2 | 0 | 1 |
+
+no_flag: 399 chunks — 339/399 correct (85.0%), 60/399 hallucinated (15.0%)
+
+**Changes from Run 6:** 9 epochs (was 5), 90/10/0 split (was 80/10/10).
+Best checkpoint was epoch 6 (eval_loss 1.154). Epochs 7-9 plateaued.
+
+**Eval split results vs Run 6:** F1 improved 65.0%→67.8%. Recall jumped 54.2%→61.1%.
+agile_methodology recovered (36%→82%), marginal_short_duration back (10%→40%),
+large_team fired for first time (25%). Precision traded down slightly (81.2%→76.3%).
+
+**Held-out test set (test_reserve.jsonl):** F1 34.3%. Poor results driven by labeling
+standard mismatch — training data was labeled with Sonnet (loose prompt), test set was
+labeled with Opus (strict prompt with business context, chunk-only evidence rules).
+Model fires on signals the strict prompt correctly ignores (oral_presentation: 34 FP,
+onsite_required: 13 FP). Root cause: training data quality, not model architecture.
+**Next step: re-label training data with the improved strict prompt.**
+
+---
+
 ## Run 6: Onsite cleaning + neg ratio 0.2 + correct grad accum (4/15)
 
 Model: meta-llama/Llama-3.2-3B-Instruct
