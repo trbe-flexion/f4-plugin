@@ -133,6 +133,17 @@ def print_per_flag_metrics(results: list[dict]) -> None:
         rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         print(f"{flag:<30} {prec:>5.1%} {rec:>5.1%} {tp:>4} {fp:>4} {fn:>4}")
 
+    # no_flag accuracy
+    no_flag_total = sum(1 for r in results if not r["ground_truth"])
+    no_flag_correct = sum(1 for r in results if not r["ground_truth"] and not r["predicted"])
+    no_flag_hallucinated = no_flag_total - no_flag_correct
+    if no_flag_total > 0:
+        correct_pct = no_flag_correct / no_flag_total
+        halluc_pct = no_flag_hallucinated / no_flag_total
+        print(f"\nno_flag chunks: {no_flag_total}")
+        print(f"  Correct (no_flag): {no_flag_correct}/{no_flag_total} ({correct_pct:.1%})")
+        print(f"  Hallucinated:      {no_flag_hallucinated}/{no_flag_total} ({halluc_pct:.1%})")
+
 
 def print_comparison(base_metrics: dict, finetuned_metrics: dict) -> None:
     """Print side-by-side comparison of base vs fine-tuned metrics."""
