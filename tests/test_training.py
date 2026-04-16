@@ -409,7 +409,10 @@ class TestMergeMain:
         with patch.dict(sys.modules, mock_modules):
             from training.merge_and_export import main
 
-            with patch("training.merge_and_export.fix_tokenizer_class") as mock_fix:
+            with (
+                patch("training.merge_and_export.fix_tokenizer_class") as mock_fix_tok,
+                patch("training.merge_and_export.fix_config_for_bedrock") as mock_fix_cfg,
+            ):
                 main(
                     [
                         "--adapter-dir",
@@ -425,7 +428,8 @@ class TestMergeMain:
         mock_merged.save_pretrained.assert_called_once_with(
             str(output_dir), safe_serialization=True
         )
-        mock_fix.assert_called_once_with(str(output_dir))
+        mock_fix_tok.assert_called_once_with(str(output_dir))
+        mock_fix_cfg.assert_called_once_with(str(output_dir))
 
     def test_missing_adapter_dir(self, tmp_path):
         from training.merge_and_export import main

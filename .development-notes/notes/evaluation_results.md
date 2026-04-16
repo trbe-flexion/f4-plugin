@@ -1,5 +1,48 @@
 # F4 Evaluation Results
 
+## Run 8: 7 flags only, 5 epochs, 80/10/10 split (4/16)
+
+Model: meta-llama/Llama-3.2-3B-Instruct
+Fine-tuning: LoRA, 5 epochs, 80/10/10 split, max_seq_length 2048
+Training config: No RAG context, negatives at 0.2 ratio, batch 8 / grad accum 2
+Reduced to 7 high-performing flags (dropped design_exercise, large_team,
+marginal_short_duration, budget_too_low, onsite_required, wosb_set_aside,
+off_the_shelf_software). Source data: opus_validated_real.jsonl with KEEP_FLAGS filter.
+Environment: SageMaker ml.g6.xlarge (L4 24GB)
+
+### Held-out test set results (61 chunks)
+
+| Metric | Value |
+|--------|-------|
+| Chunks | 61 |
+| Format compliance | 98.4% |
+| Precision | 92.2% |
+| Recall | 85.5% |
+| F1 | 88.7% |
+| Predicted flags | 51 |
+| Ground truth flags | 55 |
+| Correct | 47 |
+
+| Flag | Prec | Rec | TP | FP | FN |
+|------|------|-----|----|----|-----|
+| 8a_set_aside | 100.0% | 80.0% | 4 | 0 | 1 |
+| agile_methodology | 100.0% | 72.7% | 8 | 0 | 3 |
+| hubzone_set_aside | 100.0% | 100.0% | 3 | 0 | 0 |
+| lpta_source_selection | 87.5% | 87.5% | 7 | 1 | 1 |
+| oral_presentation | 100.0% | 100.0% | 12 | 0 | 0 |
+| sdvosb_set_aside | 100.0% | 75.0% | 3 | 0 | 1 |
+| small_business_set_aside | 76.9% | 83.3% | 10 | 3 | 2 |
+
+no_flag: 8 chunks — 5/8 correct (62.5%), 3/8 hallucinated (37.5%)
+
+**Changes from Run 7:** Reduced from 14 to 7 flags, keeping only those with
+strong Run 6 performance. Back to 5 epochs (from 9). 80/10/10 split with
+held-out test. F1 jumped to 88.7% (from 67.8% eval / 34.3% test in Run 7).
+Precision 92.2%, recall 85.5% — both substantially improved. oral_presentation
+perfect (100/100). small_business_set_aside is the weakest (77/83, 3 FP).
+
+---
+
 ## Run 7: 9 epochs, 90/10/0 split (4/16)
 
 Model: meta-llama/Llama-3.2-3B-Instruct
