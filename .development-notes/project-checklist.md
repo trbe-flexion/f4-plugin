@@ -153,17 +153,6 @@ Opp-capture integration:
 
 ## TEMP: Copy-paste commands (delete when done)
 
-Smoke test (local, new model):
 ```
-uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/3ffr95d8c4cc"
-```
-
-Evaluate on test set (SageMaker):
-```
-PYTHONPATH=. uv run python training/evaluate.py
-```
-
-Gradio demo (local):
-```
-uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/3ffr95d8c4cc" --share --auth demo:demo
+PYTHONPATH=. uv run python scripts/label_test_set.py "/Users/travisblount-elliott/For Travis/Pursue" "/Users/travisblount-elliott/For Travis/Do Not Pursue" --exclude "Sources Sought" "Capability_Statement"
 ```

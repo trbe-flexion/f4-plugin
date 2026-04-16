@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Label held-out test set RFPs using Claude Opus via Bedrock.
 
-Reads individual RFP files (PDF/DOCX) or directories, chunks them, sends
-each section to Opus for flag extraction, and writes labeled chunks to
-data/test_labeled.jsonl.
+Reads RFP files (PDF/DOCX) or directories, chunks them into ~400-word pieces,
+sends each chunk individually to Opus for flag labeling, and writes results
+in training-ready messages format to data/test_reserve.jsonl.
 
 Unlike label_real_data.py, this script:
   - Uses Opus (not Sonnet) for higher-quality ground truth
-  - Has no per-flag quota tracking — extracts everything found
+  - Chunks first, then labels each chunk individually
+  - Has no per-flag quota tracking — labels everything found
   - Runs with async concurrency for speed
-  - Uses the current (cleaned) flag set
+  - Writes directly to messages format
 
 Usage:
   PYTHONPATH=. uv run python scripts/label_test_set.py "/path/to/Pursue" "/path/to/Do Not Pursue"
@@ -33,7 +34,8 @@ OUTPUT_FILE = DATA_DIR / "test_reserve.jsonl"
 SYSTEM_PROMPT_PATH = REPO_ROOT / "scripts" / "system-prompt.md"
 
 MODEL = "us.anthropic.claude-opus-4-6-v1"
-MAX_SECTION_WORDS = 30_000
+CHUNK_WORDS = 400
+CHUNK_OVERLAP_WORDS = 50
 
 # Current flag set (post-cleaning, matches system-prompt.md)
 KEEP_FLAGS: list[str] = [
@@ -55,10 +57,12 @@ KEEP_FLAGS: list[str] = [
 
 FLAG_DESCRIPTIONS: dict[str, str] = {
     "off_the_shelf_software": (
-        "Primary work is configuring/deploying COTS platforms. Look for explicit COTS "
-        "language: 'off-the-shelf,' 'COTS,' 'GOTS,' 'NDI,' 'FAR Part 12,' "
-        "'shrink-wrapped,' 'OOTB / out-of-the-box.' Do NOT flag incidental mentions "
-        "of commercial software tools within a custom development RFP."
+        "The chunk describes procuring, configuring, or deploying a commercial "
+        "off-the-shelf product as the PRIMARY work. Must contain explicit COTS "
+        "language IN THE CHUNK BODY: 'off-the-shelf,' 'COTS,' 'GOTS,' 'NDI,' "
+        "'FAR Part 12,' 'shrink-wrapped,' 'OOTB,' 'out-of-the-box.' A document "
+        "title mentioning a platform name is NOT sufficient. Generic procurement "
+        "clauses are NOT sufficient."
     ),
     "lpta_source_selection": (
         "Source selection is Lowest Price Technically Acceptable. "
@@ -66,15 +70,15 @@ FLAG_DESCRIPTIONS: dict[str, str] = {
     ),
     "small_business_set_aside": (
         "RFP is set aside exclusively for small businesses. Look for FAR 52.219-6, "
-        '"small business set-aside," or explicit small business restriction.'
+        '"small business set-aside," or explicit restriction.'
     ),
     "8a_set_aside": (
-        "8(a) Business Development Program set-aside. Look for FAR 52.219-11/14, "
-        '"8(a) sole source," or "8(a) competitive set-aside."'
+        "8(a) Business Development Program set-aside. Look for "
+        'FAR 52.219-11/14, "8(a) sole source," "8(a) competitive set-aside."'
     ),
     "wosb_set_aside": (
-        "Women-Owned Small Business (WOSB) or Economically Disadvantaged WOSB "
-        "(EDWOSB) set-aside. Look for FAR 52.219-29/30, WOSB/EDWOSB language."
+        "Women-Owned Small Business (WOSB) or EDWOSB set-aside. "
+        "Look for FAR 52.219-29/30, WOSB/EDWOSB language."
     ),
     "sdvosb_set_aside": (
         "Service-Disabled Veteran-Owned Small Business set-aside. "
@@ -85,36 +89,38 @@ FLAG_DESCRIPTIONS: dict[str, str] = {
         "preference, or explicit HUBZone set-aside language."
     ),
     "agile_methodology": (
-        "RFP explicitly requires or expects Agile/Scrum methodology. "
-        'Look for: "Agile," "Scrum," "sprint," "user stories," "iterative."'
+        "The chunk explicitly requires or describes Agile/Scrum methodology "
+        "for the work. Look for: 'Agile,' 'Scrum,' 'sprint,' 'user stories,' "
+        "'iterative development.' General mentions of modern practices or CI/CD "
+        "alone are NOT sufficient — the chunk must specifically reference Agile "
+        "as a methodology."
     ),
     "oral_presentation": (
-        "RFP includes an oral presentation component as part of evaluation. "
-        'Look for: "oral presentation," "oral proposal," "oral evaluation."'
+        "The chunk describes an oral presentation as part of the evaluation/award "
+        'process. Look for: "oral presentation," "oral proposal."'
     ),
     "design_exercise": (
-        "RFP includes a design challenge, prototype, proof of concept, or "
-        "demonstration as part of evaluation. Look for: 'demonstration,' "
-        "'challenge scenario,' 'proof of concept,' 'POC,' 'flyoff,' 'pilot.'"
+        "The chunk describes a design challenge, prototype, proof of concept, or "
+        "live demonstration required as part of evaluation. Look for: "
+        "'demonstration,' 'challenge scenario,' 'proof of concept,' 'POC,' "
+        "'flyoff,' 'pilot.'"
     ),
     "budget_too_low": (
-        "Total contract budget is below $100K. The dollar figure must appear "
-        "explicitly as a total contract value, ceiling, obligation amount, or NTE."
+        "The chunk states a total contract value, ceiling, or NTE under $100K "
+        "as an explicit dollar figure."
     ),
     "onsite_required": (
-        "All work must be performed at a specific location. Look for explicit "
-        "onsite language: 'on-site,' 'onsite,' 'place of performance,' "
-        "'in-person,' 'physically present.' Do NOT flag if hybrid, remote, "
-        "or flexible options are offered."
+        "The chunk explicitly requires all work at a specific location. Look for: "
+        "'on-site,' 'onsite,' 'place of performance,' 'in-person,' 'physically "
+        "present.' Do NOT flag if remote, hybrid, or telework options are mentioned."
     ),
     "large_team": (
-        "Scope requires 10+ people. Must be explicit — a stated number "
-        "(e.g. '13 FTEs,' '104 contractor personnel') or a list of 10+ "
-        "named positions/roles."
+        "The chunk explicitly states 10+ personnel/FTEs or enumerates 10+ named "
+        "roles. Must be an explicit count or list, not inferred from scope size."
     ),
     "marginal_short_duration": (
-        "Period of performance is less than 12 months. Must be explicit — "
-        "a stated duration, not inferred from context."
+        "The chunk explicitly states a period of performance under 12 months. "
+        "Must be a stated duration, not inferred."
     ),
 }
 
@@ -148,39 +154,43 @@ def extract_rfp_text(path: Path) -> str:
     return ""
 
 
-def split_into_sections(text: str, max_words: int = MAX_SECTION_WORDS) -> list[str]:
-    """Split text into sections of roughly max_words on paragraph boundaries."""
-    words = text.split()
-    if len(words) <= max_words:
-        return [text]
-
+def chunk_text(
+    text: str,
+    chunk_words: int = CHUNK_WORDS,
+    overlap_words: int = CHUNK_OVERLAP_WORDS,
+) -> list[str]:
+    """Split text into overlapping word-level chunks on paragraph boundaries."""
     paragraphs = text.split("\n\n")
-    sections: list[str] = []
+    chunks: list[str] = []
     current: list[str] = []
     current_words = 0
 
     for para in paragraphs:
-        para_word_list = para.split()
-        para_words = len(para_word_list)
-        if para_words > max_words:
-            if current:
-                sections.append("\n\n".join(current))
-                current = []
-                current_words = 0
-            for j in range(0, para_words, max_words):
-                sections.append(" ".join(para_word_list[j : j + max_words]))
+        para_words = len(para.split())
+        if not para.strip():
             continue
-        if current_words + para_words > max_words and current:
-            sections.append("\n\n".join(current))
-            current = [para]
-            current_words = para_words
-        else:
-            current.append(para)
-            current_words += para_words
+
+        if current_words + para_words > chunk_words and current:
+            chunks.append("\n\n".join(current))
+            # Keep last paragraph(s) for overlap
+            overlap: list[str] = []
+            overlap_count = 0
+            for p in reversed(current):
+                p_words = len(p.split())
+                if overlap_count + p_words > overlap_words:
+                    break
+                overlap.insert(0, p)
+                overlap_count += p_words
+            current = overlap
+            current_words = overlap_count
+
+        current.append(para)
+        current_words += para_words
 
     if current:
-        sections.append("\n\n".join(current))
-    return sections
+        chunks.append("\n\n".join(current))
+
+    return chunks
 
 
 # ---------------------------------------------------------------------------
@@ -188,49 +198,39 @@ def split_into_sections(text: str, max_words: int = MAX_SECTION_WORDS) -> list[s
 # ---------------------------------------------------------------------------
 
 
-def build_prompt(rfp_text: str) -> str:
+def build_prompt(chunk_text: str) -> str:
     flag_block = "\n".join(f"  - {flag}: {FLAG_DESCRIPTIONS[flag]}" for flag in KEEP_FLAGS)
-    return f"""You are labeling government RFP text to build a ground-truth evaluation
-dataset for a fine-tuned 3B flag detection model. Accuracy is critical — these labels
-will be used to measure model performance.
+    return f"""Your output will be parsed directly by a script. You MUST return ONLY
+a JSON object in this exact format, with no other text:
+{{"flags": ["flag_name_1", "flag_name_2"]}}
+or if no flags: {{"flags": []}}
 
-Read the RFP text below and extract passages (~200-400 words each) that exhibit
-any of the flags listed. Also extract 1-2 passages that clearly contain NO flags
-(for no_flag evaluation data).
+## Context
+
+You are labeling government RFP text chunks for Flexion, a software consultancy
+that screens RFPs to decide whether to bid. Each flag represents a specific
+business signal that affects the bid/no-bid decision. These labels are ground
+truth for evaluating a fine-tuned detection model — accuracy matters more than
+coverage. A false positive is worse than a missed flag.
+
+You are seeing one ~400-word chunk at a time, not the full document. You must
+decide based ONLY on what is explicitly stated in this chunk. Do not infer flags
+from context clues, document titles, boilerplate, or indirect language. Most
+chunks contain no flags — that is expected and correct.
 
 ## Flags to detect:
 {flag_block}
 
-## Instructions:
-- Each passage should be a self-contained chunk with clear, explicit evidence
-- Only label a flag if the signal is unambiguous in the chunk text itself
-- For each passage, report:
-  - chunk_text: the extracted passage (200-400 words)
-  - flags: list of flag names present (use exact names above), or empty list for no_flag
-  - confidence: "high" or "medium" (only include "high" confidence labels)
-- Skip boilerplate (tables of contents, standard clauses) unless they contain flag signals
-- If no flags are found, return only no_flag passages
+## Rules:
+- Only flag what is EXPLICITLY stated in the chunk text
+- When in doubt, return no flags — precision over recall
+- Boilerplate, contract clauses, and legal terms are almost never flaggable
+- Most chunks will have no flags. That is correct.
 
-Return a JSON array. No other text.
+## Chunk:
+{chunk_text}
 
-Example:
-```json
-[
-  {{
-    "chunk_text": "This solicitation is set-aside for SDVOSB businesses...",
-    "flags": ["sdvosb_set_aside"],
-    "confidence": "high"
-  }},
-  {{
-    "chunk_text": "The contractor shall provide IT modernization services...",
-    "flags": [],
-    "confidence": "high"
-  }}
-]
-```
-
-## RFP Text:
-{rfp_text}"""
+Return ONLY: {{"flags": ["flag_name", ...]}} or {{"flags": []}}"""
 
 
 # ---------------------------------------------------------------------------
@@ -243,15 +243,15 @@ async def call_opus(
     prompt: str,
     semaphore: asyncio.Semaphore,
     label: str,
-) -> list[dict]:
-    """Call Opus with retry on throttling."""
+) -> list[str]:
+    """Call Opus to label a single chunk. Returns list of flag names."""
     max_retries = 3
     for attempt in range(max_retries):
         async with semaphore:
             try:
                 response = await client.messages.create(
                     model=MODEL,
-                    max_tokens=8192,
+                    max_tokens=256,
                     messages=[{"role": "user", "content": prompt}],
                 )
                 if not response.content:
@@ -265,10 +265,12 @@ async def call_opus(
                     content = "\n".join(lines[1:end])
 
                 result = json.loads(content)
-                if not isinstance(result, list):
-                    print(f"  [warn] {label}: expected array, got {type(result).__name__}")
-                    return []
-                return result
+                if isinstance(result, dict):
+                    return result.get("flags", [])
+                if isinstance(result, list):
+                    return result
+                print(f"  [warn] {label}: unexpected type {type(result).__name__}")
+                return []
 
             except anthropic.RateLimitError:
                 wait = 2 ** (attempt + 1)
@@ -306,6 +308,8 @@ async def process_rfps(args: argparse.Namespace) -> None:
             if item.suffix == ".zip":
                 continue
             if (item.is_file() and item.suffix.lower() in supported) or item.is_dir():
+                if any(exc in item.name for exc in args.exclude):
+                    continue
                 entries.append(item)
         print(f"Found {len(entries)} RFP entries so far (added {source_dir.name})")
 
@@ -314,7 +318,7 @@ async def process_rfps(args: argparse.Namespace) -> None:
         return
 
     # Extract and chunk
-    all_tasks: list[tuple[str, str, int]] = []  # (rfp_name, section_text, section_idx)
+    all_chunks: list[tuple[str, str, int]] = []  # (rfp_name, chunk_text, chunk_idx)
     for entry in entries:
         name = entry.stem
         text = extract_rfp_text(entry)
@@ -322,12 +326,12 @@ async def process_rfps(args: argparse.Namespace) -> None:
             print(f"  [skip] {name}: no text extracted")
             continue
         words = len(text.split())
-        sections = split_into_sections(text)
-        print(f"  {name}: {words} words, {len(sections)} section(s)")
-        for i, section in enumerate(sections):
-            all_tasks.append((name, section, i))
+        chunks = chunk_text(text)
+        print(f"  {name}: {words} words, {len(chunks)} chunks")
+        for i, chunk in enumerate(chunks):
+            all_chunks.append((name, chunk, i))
 
-    print(f"\nTotal sections to label: {len(all_tasks)}")
+    print(f"\nTotal chunks to label: {len(all_chunks)}")
 
     if args.dry_run:
         print("(dry run — no API calls)")
@@ -336,59 +340,91 @@ async def process_rfps(args: argparse.Namespace) -> None:
     # Label concurrently
     client = anthropic.AsyncAnthropicBedrock()
     semaphore = asyncio.Semaphore(args.concurrency)
-
     system_prompt = SYSTEM_PROMPT_PATH.read_text().strip()
 
-    async def label_section(rfp_name: str, section: str, idx: int) -> list[dict]:
-        label = f"{rfp_name}[{idx}]"
-        prompt = build_prompt(section)
-        chunks = await call_opus(client, prompt, semaphore, label)
-        print(f"  {label}: {len(chunks)} chunks extracted")
-        results = []
-        for chunk in chunks:
-            if not isinstance(chunk, dict) or "chunk_text" not in chunk:
-                continue
-            flags = chunk.get("flags", [])
-            assistant_content = "\n".join(flags) if flags else "no_flag"
-            results.append(
-                {
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": chunk["chunk_text"]},
-                        {"role": "assistant", "content": assistant_content},
-                    ]
-                }
-            )
-        return results
-
-    coros = [label_section(name, section, idx) for name, section, idx in all_tasks]
-    all_results = await asyncio.gather(*coros)
-
-    # Flatten and write
-    records = [rec for batch in all_results for rec in batch]
+    # Resume support: load already-labeled chunks
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with OUTPUT_FILE.open("w") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
+    done_texts: set[str] = set()
+    if OUTPUT_FILE.exists():
+        with OUTPUT_FILE.open() as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    rec = json.loads(line)
+                    done_texts.add(rec["messages"][1]["content"])
+        if done_texts:
+            print(f"  Resuming: {len(done_texts)} chunks already labeled")
 
-    # Summary
+    remaining = [(n, t, i) for n, t, i in all_chunks if t not in done_texts]
+    print(f"  Chunks to label: {len(remaining)}")
+
+    if not remaining:
+        print("  All chunks already labeled.")
+        # Still compute summary from existing file
+        written = len(done_texts)
+    else:
+        from collections import Counter
+
+        flag_counts: Counter = Counter()
+        no_flag = 0
+        written = len(done_texts)
+
+        outfile = OUTPUT_FILE.open("a")
+
+        async def label_chunk(rfp_name: str, text: str, idx: int) -> None:
+            nonlocal written, no_flag
+            label = f"{rfp_name}[{idx}]"
+            prompt = build_prompt(text)
+            flags = await call_opus(client, prompt, semaphore, label)
+            # Filter to known flags
+            flags = [f for f in flags if f in KEEP_FLAGS]
+            assistant_content = "\n".join(flags) if flags else "no_flag"
+            rec = {
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                    {"role": "assistant", "content": assistant_content},
+                ]
+            }
+            outfile.write(json.dumps(rec) + "\n")
+            outfile.flush()
+            written += 1
+
+            if assistant_content == "no_flag":
+                no_flag += 1
+            else:
+                for flag in flags:
+                    flag_counts[flag] += 1
+
+        coros = [label_chunk(name, text, idx) for name, text, idx in remaining]
+        await asyncio.gather(*coros)
+        outfile.close()
+
+    # Summary from full file
     from collections import Counter
 
-    flag_counts: Counter = Counter()
-    no_flag = 0
-    for rec in records:
-        label = rec["messages"][-1]["content"]
-        if label == "no_flag":
-            no_flag += 1
-        else:
-            for flag in label.strip().split("\n"):
-                flag_counts[flag] += 1
+    flag_counts_final: Counter = Counter()
+    no_flag_final = 0
+    total = 0
+    with OUTPUT_FILE.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            total += 1
+            rec = json.loads(line)
+            content = rec["messages"][-1]["content"]
+            if content == "no_flag":
+                no_flag_final += 1
+            else:
+                for flag in content.strip().split("\n"):
+                    flag_counts_final[flag] += 1
 
-    print(f"\nWrote {len(records)} chunks to {OUTPUT_FILE.name}")
-    flagged = len(records) - no_flag
-    print(f"  Flagged: {flagged} | No-flag: {no_flag}")
+    flagged = total - no_flag_final
+    print(f"\nTotal {total} chunks in {OUTPUT_FILE.name}")
+    print(f"  Flagged: {flagged} | No-flag: {no_flag_final}")
     print("  Flag distribution:")
-    for flag, count in flag_counts.most_common():
+    for flag, count in flag_counts_final.most_common():
         print(f"    {flag}: {count}")
 
 
@@ -404,6 +440,12 @@ def main() -> None:
         type=int,
         default=5,
         help="Max concurrent Opus calls (default: 5)",
+    )
+    parser.add_argument(
+        "--exclude",
+        nargs="*",
+        default=[],
+        help="Substrings to exclude from filenames (e.g. 'Sources Sought' 'Capability')",
     )
     parser.add_argument(
         "--dry-run",
