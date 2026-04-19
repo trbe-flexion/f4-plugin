@@ -4,7 +4,7 @@
 
 ## 1. Context: Opp-Capture Today (~1 minute)
 
-Flexion has an existing pipeline called opp-capture that screens government RFPs for business fit. It has four stages — Scout, Screener, Downloader, and Analyzer. The Screener uses string-based keyword matching before passing an RFP to the Analyzer. Keyword matching is fast, but has obvious limitations. The Analyzer uses Claude Sonnet via Bedrock for deeper evaluation. It's good, but relatively expensive, slow, and isn't perfect. The gap between dumb keyword matching and a full LLM evaluation is where we lose opportunities or waste biz-dev's time. I think a small specialist model could help.
+Flexion has an existing pipeline called opp-capture that screens government RFPs for business fit. It has four stages — Scout, Screener, Downloader, and Analyzer. The Analyzer uses string-based keyword matching before passing an RFP to . Keyword matching is fast, but has obvious limitations. The Analyzer uses Claude Sonnet via Bedrock for deeper evaluation. It's good, but relatively expensive, slow, and isn't perfect. The gap between dumb keyword matching and a full LLM evaluation is where we lose opportunities or waste biz-dev's time. I think a small specialist model could help.
 
 ---
 
@@ -38,7 +38,7 @@ I chose to chunk text to 512 tokens.
 * I thought too large might be noisy.
 * I believed I would be sharing context with RAG results.
 * I believed I could run into context window problems with larger chunks.
-* I wanted my prompts to be reasonably human-readabnle for sanity-testing.
+* I wanted my prompts to be reasonably human-readable for sanity-testing.
 
 ### Flag taxonomy
 
@@ -60,7 +60,7 @@ This is a Gradio frontend test harness. I can upload a PDF or DOCX, and F4 proce
 
 **Pre-demo:**
 ```
-uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc" --share --auth demo:demo
+uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t" --share --auth demo:demo
 ```
 
 ---
@@ -75,17 +75,15 @@ I was given 950+ real RFPs by Tom Willis, so I set about cleaning them with a sc
 
 From there it was iterative data cleaning. Every major improvement came from data quality. Adjusting hyperparameters either yielded no meaningful improvement or a regression. F1 climbed from 39% to 65% mostly through data cleaning and overall scope reduction.
 
-I identified several fag detection patterns that seemed to be causing tension in the model, and eventually settled on a set of only 7 flags that performed well and did not cause detection tension with each other. With this set, I achieved 92% precision and 85% recall.
+I identified several flag detection patterns that seemed to be causing tension in the model, and eventually settled on a set of only 7 flags that performed well and did not cause detection tension with each other. With this set, I achieved 92% precision and 85% recall.
 
 ### Take-aways (1.5 minute)
 
-Data Quality: An Opus validation pass caught a 13% error rate in the training data. Prompt engineering for the *labeling step* of distillation was just as important as prompt engineering for fine-tuning and inferrence itself. Conducting a series of experiments, I found I was able to produce very high quality ground truth data, but I estimated it would cost at least $1000 dollars to process my 950+ RFP set - so I did not do that.
+Data Quality: An Opus validation pass caught a 13% error rate in the training data. Prompt engineering for the *labeling step* of distillation was just as important as prompt engineering for fine-tuning and inference itself. Conducting a series of experiments, I found I was able to produce very high quality ground truth data, but I estimated it would cost at least $1000 dollars to process my 950+ RFP set - so I did not do that.
 
-A 3B model struggled when the fine-tuning patterns were different. Example! Flags like scope alignment or brownfield struggled with a 512 token chunk - they needed to infer whether the chunk was part of a summary, or an offhand or out-of-context mention of related concepts. Flags like waterfall development were practically looking for a keyword and and asking if it was a positive or negative, so document-level context inferrence was detrimental. Training it to infer document-level context for some flags but explicitly ignore context for others caused either or both types of detection to fail catastrophically.
+A 3B model struggled when the fine-tuning patterns were different. Example! Flags like scope alignment or brownfield struggled with a 512 token chunk - they needed to infer whether the chunk was part of a summary, or an offhand or out-of-context mention of related concepts. Flags like waterfall development were practically looking for a keyword and and asking if it was a positive or negative, so document-level context inference was detrimental. Training it to infer document-level context for some flags but explicitly ignore context for others caused either or both types of detection to fail catastrophically.
 
 RAG was Detrimental: Retrieved examples from 30+ flag types were noisy enough to degrade performance rather than help.
-
-[If I have time: Integration is always hard. The model worked perfectly on SageMaker but produced gibberish on Bedrock for any prompt longer than about 875 tokens. I binary-searched the exact token cutoff and eventually traced it to a field name in config.json. The export script used `rope_parameters`, which is the transformers 5.x field name, but Bedrock's inference container expects `rope_scaling`, the 4.x name. Without RoPE scaling, the position encoding broke at longer sequences, abruptly at exactly 876 tokens. Renaming the field fixed it.]
 
 ### How I will proceed (2.5 minutes)
 
@@ -103,7 +101,7 @@ Prompts: A starter high quality set would also allow me to tune prompts for trai
 
 Multiple Fine-Tuned Models: I could train multiple small models to focus on flags with related detection strategies. For instance, many of the black flags naturally group by detection strategy.
 
-Gating: The multiple models approach could be gated to prevent unnecessary inferrence - most RFPs should fast fail! Drawback: MORE inferrence passes on modderate to good fit RFPs.
+Gating: The multiple models approach could be gated to prevent unnecessary inferrence - most RFPs should fast fail! Drawback: MORE inferrence passes on moderate to good fit RFPs.
 
 Rag: A RAG may become viable again with specialist models.
 

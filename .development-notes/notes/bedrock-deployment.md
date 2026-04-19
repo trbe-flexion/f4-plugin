@@ -1,7 +1,7 @@
 # Bedrock Deployment Log
 
 Step-by-step record of deploying the fine-tuned Llama 3.2 3B model to Bedrock Custom Model Import.
-Account: Alt/cohort (<ACCOUNT_ID>, us-east-1). Will migrate to Main later.
+Account: Alt/cohort (165286508758, us-east-1). Will migrate to Main later.
 
 ## 1. Merge LoRA + Export
 
@@ -35,10 +35,10 @@ aws s3 mb s3://trbe-f4-finetuned-model --region us-east-1
 ```bash
 # Get exact role ARN first:
 aws iam get-role --role-name AmazonSageMakerUserIAMExecutionRole_8 --query 'Role.Arn' --output text
-# Result: arn:aws:iam::<ACCOUNT_ID>:role/service-role/AmazonSageMakerUserIAMExecutionRole_8
+# Result: arn:aws:iam::165286508758:role/service-role/AmazonSageMakerUserIAMExecutionRole_8
 # Note: includes service-role/ path — without it, the policy is rejected as MalformedPolicy.
 
-aws s3api put-bucket-policy --bucket trbe-f4-finetuned-model --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::<ACCOUNT_ID>:role/service-role/AmazonSageMakerUserIAMExecutionRole_8"},"Action":["s3:PutObject","s3:GetObject","s3:ListBucket"],"Resource":["arn:aws:s3:::trbe-f4-finetuned-model","arn:aws:s3:::trbe-f4-finetuned-model/*"]}]}'
+aws s3api put-bucket-policy --bucket trbe-f4-finetuned-model --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::165286508758:role/service-role/AmazonSageMakerUserIAMExecutionRole_8"},"Action":["s3:PutObject","s3:GetObject","s3:ListBucket"],"Resource":["arn:aws:s3:::trbe-f4-finetuned-model","arn:aws:s3:::trbe-f4-finetuned-model/*"]}]}'
 ```
 
 **Upload model — run on: SageMaker**
@@ -69,7 +69,7 @@ Status: complete
 **Run on: local CLI** (Alt account, needs boto3 via uv)
 
 ```bash
-uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc"
+uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t"
 ```
 
 Results: 4/5 passed. waterfall, no_flag, COTS, small_business all correct. Agile test returned
@@ -159,7 +159,7 @@ fix.
 ## Notes
 
 - HW7 reference bucket: `llm-class-hw7-model-trbe` (Llama 3.2 1B, still exists on Alt account)
-- HW7 model ARN: `arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/93c3bcejui1c`
+- HW7 model ARN: `arn:aws:bedrock:us-east-1:165286508758:imported-model/93c3bcejui1c`
 - Bedrock import requires IAM role with S3 read access to the model bucket
 - In HW7, SageMaker execution role lacked `s3:CreateBucket` and `s3:PutObject` — had to use
   console click-ops and manual bucket policy. Creating bucket from local CLI avoids this.

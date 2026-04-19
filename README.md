@@ -15,7 +15,7 @@ Requires AWS credentials with Bedrock InvokeModel permission (Alt/cohort account
 ```bash
 uv sync
 uv run python -m src.frontend \
-  --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc" \
+  --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t" \
   --share --auth demo:demo
 ```
 
@@ -130,7 +130,7 @@ PYTHONPATH=. uv run python evaluation/evaluate.py
 Bedrock smoke test (local, Alt account creds):
 ```bash
 uv run python scripts/test_bedrock_live.py \
-  --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/3ffr95d8c4cc"
+  --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t"
 ```
 
 ## Future Development

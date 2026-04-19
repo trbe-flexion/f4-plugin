@@ -99,4 +99,9 @@ class F4Pipeline:
             logger.info("Detected flags: %s", sorted(all_flags))
 
         decision = self.decision_engine.decide(all_flags)
-        return FilterResult(filter=decision)
+        return FilterResult(
+            filter=decision,
+            flags=all_flags,
+            unparsed_chunks=unparsed_chunks,
+            total_chunks=len(chunks),
+        )

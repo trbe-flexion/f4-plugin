@@ -125,3 +125,42 @@ F4 screens government RFPs on behalf of Flexion, a software development consulta
   - brownfield — No consistent chunk-level signal. Language is too diffuse ("maintain," "transition," "modernize" each
   appear in <35% of examples). Requires document-level understanding of whether contractor inherits existing code.
   - edwosb_set_aside — Merged into wosb_set_aside for training.
+
+  ---
+  All Flags by Color
+
+  Black:
+  - budget_too_low
+  - hardware_procurement
+  - insufficient_timeline
+  - narrow_scope
+  - no_custom_development
+  - off_the_shelf_software
+  - onsite_required
+  - scope_misalignment
+  - waterfall_methodology
+
+  Red:
+  - feature_factory
+  - lpta_source_selection *
+  - marginal_investment
+  - marginal_low_budget
+  - marginal_short_duration
+  - marginal_small_team
+  - marginal_uncertain_funding
+  - small_business_set_aside *
+
+  Blue:
+  - 8a_set_aside *
+  - edwosb_set_aside
+  - hubzone_set_aside *
+  - large_team
+  - onsite_madison
+  - sdvosb_set_aside *
+  - tight_deadline
+  - wosb_set_aside
+
+  Green:
+  - agile_methodology *
+  - design_exercise
+  - oral_presentation *
