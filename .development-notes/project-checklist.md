@@ -98,12 +98,12 @@ Evaluation (SageMaker, after training — use PYTHONPATH=. for module resolution
   Results saved to evaluation/baseline.json and evaluation/finetuned.json
 
 Gradio demo (local, needs AWS creds for Alt account):
-  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t" --share --auth demo:demo
+  uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/pxi20ybyyh5t" --share --auth demo:demo
   Options: --no-rag (skip RAG), --max-workers N (concurrent Bedrock calls), --region REGION
   Note: first invocation after idle hits Bedrock cold start (~1-2 min)
 
 Bedrock smoke test (local, Alt account creds):
-  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t"
+  uv run python scripts/test_bedrock_live.py --model-arn "arn:aws:bedrock:us-east-1:<ACCOUNT_ID>:imported-model/pxi20ybyyh5t"
 
 Opp-capture integration:
   pip install git+ssh://git@github.com/trbe-flexion/f4-plugin.git
@@ -151,5 +151,17 @@ Opp-capture integration:
 ## TEMP: Copy-paste commands (delete when done)
 
 ```
-PYTHONPATH=. uv run python scripts/label_test_set.py "/Users/travisblount-elliott/For Travis/Pursue" "/Users/travisblount-elliott/For Travis/Do Not Pursue" --exclude "Sources Sought" "Capability_Statement"
+uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t" --share --auth demo:demo
+```
+
+```
+curl -L -o /Users/travisblount-elliott/.cache/huggingface/gradio/frpc/frpc_darwin_arm64_v0.3 https://cdn-media.huggingface.co/frpc-gradio-0.3/frpc_darwin_arm64
+```
+
+```
+sudo xattr -cr /Users/travisblount-elliott/.cache/huggingface/gradio/frpc/frpc_darwin_arm64_v0.3
+```
+
+```
+sudo chmod +x /Users/travisblount-elliott/.cache/huggingface/gradio/frpc/frpc_darwin_arm64_v0.3
 ```
