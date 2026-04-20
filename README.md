@@ -156,6 +156,7 @@ uv run python scripts/test_bedrock_live.py \
 
 ## References
 
+- [Slide Deck](https://docs.google.com/presentation/d/1qI6qssA8q1tBe7yV6cVpEPxmIARcMD7co9DLWJp_3MQ/edit?usp=sharing)
 - [Architectural Decision Record](.development-notes/notes/final_adr.md)
 - [Evaluation Results](.development-notes/notes/evaluation_results.md)
 - [Bedrock Deployment Log](.development-notes/notes/bedrock-deployment.md)
