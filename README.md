@@ -38,6 +38,20 @@ f4.filter(text)
 
 The model outputs one flag name per line, nothing else. The application layer handles taxonomy lookup, tier assignment, and decision logic. Format compliance exceeds 99% after fine-tuning.
 
+## opp-capture Integration
+
+`src/adapters/opp_capture.py` demonstrates how F4 would plug into the opp-capture Analyst pipeline. It wraps all F4 internals behind a single class:
+
+```python
+from src.adapters.opp_capture import F4Adapter
+
+f4 = F4Adapter(model_id="arn:aws:bedrock:us-east-1:165286508758:imported-model/pxi20ybyyh5t")
+result = f4.filter(combined_text)
+# result: {"black": [...], "red": [...], "green": [...], "blue": [...], "unparsed_chunks": int, "total_chunks": int}
+```
+
+In opp-capture's `Analyst.analyze_and_evaluate()`, this runs after text extraction and **before** the Sonnet summarization call. Black flags short-circuit immediately (no LLM cost); red/green/blue flags merge into the final `Decision` object alongside the existing evaluator output. See the module docstring for the full integration example.
+
 ## Model
 
 **Llama 3.2 3B-Instruct**, selected for:

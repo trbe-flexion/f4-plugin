@@ -1,6 +1,8 @@
-# Introduction
+# Introduction [FFF RFP]
 
-A year ago as part of Holly's Learning Buddies cohort, I set out to learn a bit about these newfangled LLMs, and pitched the idea of training one to Matt. He shot that down as probably too advanced of a goal, and suggested I create a custom GPT. I curated data about Flexion's biz-dev RFP (Request For Propsal) requirements, and created FFF RFP, which is, I hear, still in use. But I didn't forget.
+A year ago as part of Holly's Learning Buddies cohort, I set out to learn a bit about these newfangled LLMs, and pitched to Matt that maybe I could train one as my course objective. He shot that down as probably too advanced of a goal, and suggested I create a custom GPT. I curated data about Flexion's biz-dev RFP (Request For Propsal) requirements, and created FFF RFP, which is, I hear, still in use. But I didn't forget my original idea.
+
+[SLIDE - TITLE]
 
 So, I'm going to present on my project, Flexion Fast Fail Filtering, or F4, and I'm going to start with a little context...
 
@@ -8,15 +10,21 @@ So, I'm going to present on my project, Flexion Fast Fail Filtering, or F4, and 
 
 ## 1. Context: Opp-Capture Today (~1 minute)
 
-Flexion has an opp-capture pipeline that screens government RFPs for business fit. It has four stages — Scout, Screener, Downloader, and Analyzer. The Analyzer summarizes RFPs with Sonnet, applies deterministic rules on a structured summary for fast-fails, then runs a second Sonnet pass for nuanced flag evaluation. The deterministic rules can be brittle and the LLM passes are expensive. A small specialist model could replace both steps for flag detection.
+[SLIDE]
+
+Flexion has an opp-capture pipeline that screens government RFPs for business fit. It has four stages — Scout, Screener, Downloader, and Analyzer. The Analyzer summarizes RFPs with Sonnet, applies deterministic rules on a structured summary for fast-fails, then runs a second Sonnet pass for nuanced flag evaluation. The deterministic rules can be brittle and the LLM passes are expensive. A small specialist model could replace or gate the filtering steps.
 
 ---
 
 ## 2. The Idea (~3.5 minute)
 
+[SLIDE]
+
 F4 is a library that plugs into opp-capture, and uses a fine-tuned 3B parameter model that detects specific flags in RFP text — faster and cheaper than Claude, smarter than string matching, and possibly more accurate than Sonnet for some flags.
 
 ### What it does
+
+[SLIDE]
 
 The library exposes a single filter function that accepts text. It chunks the RFP, sends chunks concurrently to the Bedrock custom model for inference, parses the flags out of each response, deduplicates across chunks, and runs an algorithmic decision to produce a FILTER or REVIEW recommendation. It's a standalone Python library — opp-capture can import it with an adapter behind an existing port. This keeping the boundaries clean an is consistent with the repo's architecture.
 
@@ -34,11 +42,11 @@ Llama 3.2 3B-Instruct was the best fit among my constrained options. IFEval: ~74
 
 More about why Bedrock - opp-capture already interfaces with it, and we're already in the AWS ecosystem. Custom Model Import also gives me features I felt were important for a bursty-use case. It scales to zero after idle, and pricing is time-based rather than per-token. No GPU instances to manage.
 
-To mitigate the out format risk, I made the output format as simple as possible — one flag name per line, nothing else. This routinely achieved over 99% compliance after fine-tuning.
+To mitigate the output format risk, I made the output format as simple as possible — one flag name per line, nothing else. This routinely achieved over 99% compliance after fine-tuning.
 
 The application layer handles everything structural: taxonomy lookup, tier assignment, decision logic. This gives us a lot of levers to adjust based on raw output without changing the model.
 
-I chose to chunk text to 512 tokens.
+I chose to chunk text to 512 tokens with 64 token overlap.
 * I thought too large might be noisy.
 * I believed I would be sharing context with RAG results.
 * I believed I could run into context window problems with larger chunks.
@@ -46,9 +54,14 @@ I chose to chunk text to 512 tokens.
 
 ### Flag taxonomy
 
+[SLIDE]
+
 I started with over 30 flags.
 After more than a dozen rounds of training and testing, I reduced that down to seven flags.
-The ones I kept are the ones the model could reliably detect at the chunk level.
+
+[SLIDE]
+
+I kept a PoC set of flags that could be reliably detected at the chunk level after finetuning.
 
 The flags I dropped fell generally into two categories:
 * They are rare! Not enough training data even with 900 RFPs to draw from!
@@ -57,6 +70,8 @@ The flags I dropped fell generally into two categories:
 ---
 
 ## 3. Live Demo (~1 min)
+
+[SLIDe]
 
 This is a Gradio frontend test harness. I can upload a PDF or DOCX, and F4 processes it end-to-end. What you'll see is the pipeline hitting the Bedrock endpoint for real.
 
@@ -73,6 +88,8 @@ uv run python -m src.frontend --model-arn "arn:aws:bedrock:us-east-1:16528650875
 
 ### Iteration Hell (1 minute)
 
+[SLIDE]
+
 I ran many train-eval-test cycles. The first POC to get me to a full slice used synthetic data to train, but didn't work well with real RFPs (expected).
 
 I was given 950+ real RFPs by Tom Willis, so I set about cleaning them with a script running them through Sonnet to isolate chunks that would have associated flags. That worked poorer than I expected.
@@ -82,6 +99,8 @@ From there it was iterative data cleaning. Every major improvement came from dat
 I identified several flag detection patterns that seemed to be causing tension in the model, and eventually settled on a set of only 7 flags that performed well and did not cause detection tension with each other. With this set, I achieved 92% precision and 85% recall.
 
 ### Take-aways (1.5 minute)
+
+[SLIDE]
 
 Data Quality as a battle. An Opus validation pass on my data set caught a 13% error rate in the training data. Prompt engineering for the *labeling step* of distillation was just as important as prompt engineering for fine-tuning and inference itself. Conducting a series of experiments, I found I was able to produce very high quality ground truth data, but I estimated it would cost at least $1000 dollars to process my 950+ RFP set - so I did not do that.
 
@@ -108,6 +127,10 @@ Multiple Fine-Tuned Models: I could train multiple small models to focus on flag
 Gating: The multiple models approach could be gated to prevent unnecessary inferrence - hypothetically, many RFPs would fast fail! Drawback: MORE inferrence passes on moderate to good fit RFPs.
 
 A RAG may become viable again with specialist models. (TBD)
+
+## Closing
+
+I do plan to continue working on this project and move it off the Alt AWS account, but that's my presentation, thank you for listening!
 
 ---
 
